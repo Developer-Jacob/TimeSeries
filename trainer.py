@@ -52,6 +52,7 @@ class Trainer:
 
     def train(self, epochs, train_model, criterion, optimizer, scaler):
         model = train_model
+
         train_loss_list = []
         valid_loss_list = []
         test_loss_list = []
@@ -64,6 +65,7 @@ class Trainer:
             for data, target in self.train_loader:
                 data, target = data.to(device), target.to(device)
                 optimizer.zero_grad()
+                # output = ae_model(data)
                 output = model(data)
                 output = output[:, :, 0]
 

@@ -11,6 +11,7 @@ import numpy as np
 import FinanceDataReader as fdr
 from StockData import StockData, StockDataGenerator
 from torch.utils.data import TensorDataset, DataLoader
+from AEModel import Autoencoder
 
 def show(path, real, result, input_window, output_window, show=False):
     fig = plt.figure(figsize=(20, 5))
@@ -83,7 +84,7 @@ def main(data, epochs, input_window, output_window, hidden_size, scaler, learnin
     test_loader = DataLoader(test_data_set, test_x.shape[0], shuffle=False)
 
     trainer = Trainer(dir_path, train_loader, valid_loader, test_loader)
-    lstm_model = LTSF_LSTM(output_window, train_x.shape[2], hidden_size).to(device)
+    lstm_model = LTSF_LSTM(input_window, output_window, train_x.shape[2], hidden_size).to(device)
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(lstm_model.parameters(), lr=learning_rate)
 
@@ -99,8 +100,8 @@ def main(data, epochs, input_window, output_window, hidden_size, scaler, learnin
 
 if __name__ == "__main__":
     print(device)
-    param_epochs = 200
-    param_input_window = 20
+    param_epochs = 300
+    param_input_window = 10
     param_output_window = 1
     param_hidden_size = 128
     param_learning_rate = 0.001

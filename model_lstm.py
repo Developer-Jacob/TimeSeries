@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from Const import device
-
+from AEModel import Autoencoder
 class LTSFConv(torch.nn.Module):
     def __init__(self, feature_size):
         super(LTSFConv, self).__init__()
@@ -61,8 +61,9 @@ class LTSFConv(torch.nn.Module):
 
 
 class LTSF_LSTM(torch.nn.Module):
-    def __init__(self, output_window, feature_size, hidden_size):
+    def __init__(self, input_window, output_window, feature_size, hidden_size):
         super(LTSF_LSTM, self).__init__()
+        self.input_window = input_window
         self.output_window = output_window
         self.hidden_size = hidden_size
         self.num_layers = 2
@@ -79,9 +80,10 @@ class LTSF_LSTM(torch.nn.Module):
         self.relu = nn.ReLU()
         self.f = nn.Linear(self.hidden_size, 1)
         self.bidirectional_f = nn.Linear(self.hidden_size * 2, 1)
+        self.ae = Autoencoder(self.input_window)
     def forward(self, x):
         # x, (batch_size, sequence_length(window_size), features)
-
+        x = self.ae(x)
         if self.bidirectional == True:
             h_0 = Variable(torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size)).to(device)  # hidden state
             c_0 = Variable(torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size)).to(device)  # internal state
