@@ -1,12 +1,11 @@
 import argparse
 
-# num_epochs = 1
-# learning_rate = 0.0001
-# input_window = 128
-# output_window = 4
-# hidden_size = 200
-# num_layers = 1
-
+RANDOM_SEED = 42
+param_epochs = 100
+param_input_window = 4
+param_output_window = 1
+param_hidden_size = 128
+param_learning_rate = 0.0005
 
 def parse():
     args = argparse.ArgumentParser()

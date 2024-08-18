@@ -1,123 +1,113 @@
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
+
+import Parser
+import Util
 from trainer import Trainer
-from RowData import RowData, sliding
+from RowData import sliding, normalize, split_data, prepare_data, to_tensor
 from model_lstm import LTSF_LSTM
 from Const import device
-import os
-from datetime import datetime
+
 import numpy as np
 import FinanceDataReader as fdr
-from StockData import StockData, StockDataGenerator
-from torch.utils.data import TensorDataset, DataLoader
-from AEModel import Autoencoder
-
-def show(path, real, result, input_window, output_window, show=False):
-    fig = plt.figure(figsize=(20, 5))
-    start = 300
-    count = 0
-    if result.shape[1] == 1:
-        # Output window == 1
-        result = result[:, 0]
-        for i in range(start, len(result)):
-            real_prev_sign = (real[i+input_window] - real[i+input_window - 1]) >= 0
-            pred_prev_sign = (result[i] - real[i+input_window - 1]) >= 0
-            if i == start:
-                plt.plot(i + input_window, result[i], 'k.')
-            elif real_prev_sign == pred_prev_sign:
-                plt.plot(i + input_window, result[i], 'b.')
-                count += 1
-            else:
-                plt.plot(i + input_window, result[i], 'r.')
-
-        # plt.plot(range(input_window, len(result) + input_window), result, '.')
-    else:
-        # Output window > 1
-        for idx in range(start, len(result)):
-            # if idx != 0 and idx % (config.output_window-1) != 0:
-            #     continue
-            start = input_window + idx
-            end = input_window + idx + output_window
-            plt.plot(range(start, end), result[idx], '.-')
-    plt.title('Count {}/{}, {}'.format(count, len(result) - start, count/(len(result)-start)))
-    plt.plot(range(start, len(real)), real[start:], 'k.-')
-    if show:
-        plt.show()
-    else:
-        plt.savefig(path + '/result.png')
+from StockData import StockData, StockDataGenerator, ExampleDataset
+from torch.utils.data import TensorDataset, DataLoader, Dataset
+from AEModel import CnnAutoEncoder, StackedAutoEncoder
+from Normalizer import Normalizer
+from Util import path, make_file, drow_loss, show, showPLT
 
 
-def path(ep, iw, ow, hs, lr):
-    directory = 'EP{}_IW{}_OW{}_HS{}_LR{}'.format(ep, iw, ow, hs, lr)
-    date_str = datetime.today().strftime("%Y%m%d")
-    dir_path = './Model/{}/{}'.format(date_str, directory)
-    return dir_path
+def main():
+    make_file()
 
+    need_normalize = True
+    epochs = Parser.param_epochs
+    input_window = Parser.param_input_window
+    output_window = Parser.param_output_window
+    hidden_size = Parser.param_hidden_size
+    learning_rate = Parser.param_learning_rate
 
-def make_file(dir_path, file_path, ep, iw, ow, hs, lr):
-    os.makedirs(dir_path, exist_ok=True)
-    f = open(file_path, 'w+')
-    f.write('Epochs {}'.format(ep))
-    f.write('\nInputWindow {}'.format(iw))
-    f.write('\nOutputWindow {}'.format(ow))
-    f.write('\nHiddenSize {}'.format(hs))
-    f.write('\nLearningRate {}'.format(lr))
-    f.close()
+    # ---------------------------------------------------------------------------
+    # --------------------------- STEP 0: LOAD DATA -----------------------------
+    # ---------------------------------------------------------------------------
+    generator = StockDataGenerator()
+    data_list = generator.generateRowData(section_size=600)
+    first_data, _ = data_list[0]
+    feature_size = first_data[1].size
+    encoder = StackedAutoEncoder()
 
+    # ---------------------------------------------------------------------------
+    # --------------------------- STEP 0: MAKE MODEL ----------------------------
+    # ---------------------------------------------------------------------------
+    lstm_model = LTSF_LSTM(input_window, output_window, feature_size=10, hidden_size=hidden_size).to(device)
 
-def main(data, epochs, input_window, output_window, hidden_size, scaler, learning_rate):
-    dir_path = path(epochs, input_window, output_window, hidden_size, learning_rate)
-    file_path = dir_path + '/result.txt'
-    make_file(dir_path, file_path, epochs, input_window, output_window, hidden_size, learning_rate)
+    for (data, target) in data_list:
 
-    train_x, train_y = sliding(data.train_target, data.train_data, input_window, output_window)
-    valid_x, valid_y = sliding(data.valid_target, data.valid_data, input_window, output_window)
-    test_x, test_y = sliding(data.test_target, data.test_data, input_window, output_window)
+        # ---------------------------------------------------------------------------
+        # ----------------------- STEP 2.0: NORMALIZE DATA --------------------------
+        # ---------------------------------------------------------------------------
+        if need_normalize:
+            data, target, scaler = normalize(data, target)
 
-    train_data_set = TensorDataset(train_x, train_y)
-    valid_data_set = TensorDataset(valid_x, valid_y)
-    test_data_set = TensorDataset(test_x, test_y)
+        # Split data
+        # x
+        train_data, valid_data, test_data = split_data(data)
+        # y
+        train_target, valid_target, test_target = split_data(target)
 
-    train_loader = DataLoader(train_data_set, 64, shuffle=False)
-    valid_loader = DataLoader(valid_data_set, valid_x.shape[0], shuffle=False)
-    test_loader = DataLoader(test_data_set, test_x.shape[0], shuffle=False)
+        # ---------------------------------------------------------------------------
+        # ------------- STEP 3: ENCODE FEATURES USING STACKED AUTOENCODER -----------
+        # ---------------------------------------------------------------------------
+        # Train Autoencoder
+        encoder.forward(train_data)
 
-    trainer = Trainer(dir_path, train_loader, valid_loader, test_loader)
-    lstm_model = LTSF_LSTM(input_window, output_window, train_x.shape[2], hidden_size).to(device)
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(lstm_model.parameters(), lr=learning_rate)
+        # Encode data
+        encoded_train_data = encoder.encoded_data(train_data)   # Numpy
+        encoded_valid_data = encoder.encoded_data(valid_data)   # Numpy
+        encoded_test_data = encoder.encoded_data(test_data)     # Numpy
 
-    trainer.train(epochs, lstm_model, criterion, optimizer, scaler)
-    result = trainer.eval(lstm_model)
-    result = result[:, :, 0]
-    result = scaler.inverse_transform(result)
+        extra_encoded_valid_data = np.concatenate((encoded_train_data[-input_window:], encoded_valid_data))
+        extra_encoded_test_data = np.concatenate((encoded_valid_data[-input_window:], encoded_test_data))
 
-    real = data.real
+        x_train, y_train = prepare_data(encoded_train_data, train_target, input_window, log_return=True, train=True)
+        x_valid, y_valid = prepare_data(extra_encoded_valid_data, valid_target, input_window, log_return=False, train=False)
+        x_test, y_test = prepare_data(extra_encoded_test_data, test_target, input_window, log_return=False, train=False)
 
-    show(dir_path, real, result, input_window, output_window)
+        # To Tensor
+        train_x = to_tensor(x_train)
+        train_y = to_tensor(y_train)
+        valid_x = x_valid
+        valid_y = y_valid
+        test_x = x_test
+        test_y = y_test
 
+        # Make data loader
+        train_data_set = ExampleDataset(train_x, train_y)
+        valid_data_set = ExampleDataset(valid_x, valid_y)
+        test_data_set = ExampleDataset(test_x, test_y)
+
+        train_loader = DataLoader(train_data_set, 64, shuffle=False)
+        valid_loader = DataLoader(valid_data_set, 1, shuffle=False)
+        test_loader = DataLoader(test_data_set, 1, shuffle=False)
+
+        # Train
+        trainer = Trainer(train_loader, valid_loader, test_loader)
+        criterion = nn.MSELoss()
+        param = lstm_model.parameters()
+        optimizer = torch.optim.Adam(param, lr=learning_rate)
+        loss_train, loss_valid, loss_test = trainer.train(epochs, lstm_model, criterion, optimizer)
+
+        result = trainer.eval(lstm_model)
+        result = result[:, :, 0]
+        # result = scaler.inverse_transform(result)
+
+        real = data.real
+
+        show(real, result, input_window, output_window)
 
 if __name__ == "__main__":
-    print(device)
-    param_epochs = 300
-    param_input_window = 10
-    param_output_window = 1
-    param_hidden_size = 128
-    param_learning_rate = 0.001
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
 
-    generator = StockDataGenerator()
-    stock_data = generator.stock_data
-    scaler = generator.scaler
-
-    for idx in range(1, 5):
-        for idx2 in range(1, 5):
-            main(
-                data=stock_data,
-                epochs=param_epochs,
-                input_window=param_input_window * idx2,
-                output_window=param_output_window,
-                hidden_size=param_hidden_size * idx,
-                scaler=scaler,
-                learning_rate=param_learning_rate
-            )
+    main()

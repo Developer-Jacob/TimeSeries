@@ -2,63 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from Const import device
-from AEModel import Autoencoder
-class LTSFConv(torch.nn.Module):
-    def __init__(self, feature_size):
-        super(LTSFConv, self).__init__()
-        # input (batch_size, feature_dim, data_length)
-        self.conv1 = torch.nn.Conv1d(
-            in_channels=feature_size,
-            out_channels=8,
-            kernel_size=3,
-            padding=1
-        )
-
-        self.conv2 = nn.Conv1d(
-            in_channels=8,
-            out_channels=16,
-            kernel_size=3
-        )
-
-        self.conv3 = nn.Conv1d(
-            in_channels=16,
-            out_channels=32,
-            kernel_size=3
-        )
-
-        self.de_conv3 = nn.ConvTranspose1d(
-            in_channels=32,
-            out_channels=16,
-            kernel_size=3
-        )
-
-        self.de_conv2 = nn.ConvTranspose1d(
-            in_channels=16,
-            out_channels=8,
-            kernel_size=3
-        )
-
-        self.de_conv1 = nn.ConvTranspose1d(
-            in_channels=8,
-            out_channels=feature_size,
-            kernel_size=3,
-            padding=1
-        )
-
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = x.permute((0, 2, 1))
-        x = self.relu(self.conv1(x))
-        x = self.relu(self.conv2(x))
-        x = self.relu(self.conv3(x))
-        x = self.relu(self.de_conv3(x))
-        x = self.relu(self.de_conv2(x))
-        x = self.de_conv1(x)
-        x = x.permute((0, 2, 1))
-        return x
-
-
+from AEModel import CnnAutoEncoder
 
 class LTSF_LSTM(torch.nn.Module):
     def __init__(self, input_window, output_window, feature_size, hidden_size):
@@ -66,6 +10,7 @@ class LTSF_LSTM(torch.nn.Module):
         self.input_window = input_window
         self.output_window = output_window
         self.hidden_size = hidden_size
+        self.feature_size = feature_size
         self.num_layers = 2
         self.bidirectional = False
 
@@ -80,10 +25,7 @@ class LTSF_LSTM(torch.nn.Module):
         self.relu = nn.ReLU()
         self.f = nn.Linear(self.hidden_size, 1)
         self.bidirectional_f = nn.Linear(self.hidden_size * 2, 1)
-        self.ae = Autoencoder(self.input_window)
     def forward(self, x):
-        # x, (batch_size, sequence_length(window_size), features)
-        x = self.ae(x)
         if self.bidirectional == True:
             h_0 = Variable(torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size)).to(device)  # hidden state
             c_0 = Variable(torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size)).to(device)  # internal state

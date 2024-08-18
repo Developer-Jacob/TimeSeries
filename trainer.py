@@ -4,55 +4,34 @@ from tqdm import tqdm
 import torch
 import numpy as np
 from Const import device
+import Util
 
 class Trainer:
-    def __init__(self, path, train_loader, valid_loader, test_loader):
-        self.path = path
+    def __init__(self, train_loader, valid_loader, test_loader):
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.test_loader = test_loader
 
-    def eval(self, train_model):
-        model = train_model
-        model.eval()
+    def eval(self, eval_model):
+        checkpoint = torch.load(Util.path()+'/model.pth')
+        eval_model.load_state_dict(checkpoint['state_dict'])
+
+        eval_model.eval()
 
         # 예측 테스트
         with torch.no_grad():
             pred = []
 
             for data, target in self.test_loader:
-                predicted = model(data.to(device))
+                data, target = data.to(device), target.to(device)
+
+                predicted = eval_model(data)
                 pred = predicted.data.detach().cpu().numpy()
 
         return pred
 
-    # def entropy(self, x, y, comp, scaler):
-    #     _x = scaler.inverse_transform(x.clone().detach().cpu())
-    #     _y = scaler.inverse_transform(y.clone().detach().cpu())
-    #     _comp = comp.clone().detach().cpu().numpy()
-    #     _x = _x - _comp
-    #     _y = _y - _comp
-    #     k = abs(_x) + abs(_y) - abs(_x + _y)
-    #     k = k / (k + 0.00000001)
-    #     x = x * torch.tensor(k).float().to(device)
-    #     x = x / (x + 0.00000001)
-    #     # return torch.nn.BCEWithLogitsLoss()(x, torch.zeros(len(x), 1).to(device))
-    #     return torch.nn.MSELoss()(x, torch.zeros(len(x), 1).to(device))
-    #
-    # def mse(self, x, y, comp, scaler):
-    #     # _x = scaler.inverse_transform(x.clone().detach().cpu())
-    #     # _y = scaler.inverse_transform(y.clone().detach().cpu())
-    #     # _comp = comp.clone().detach().cpu().numpy()
-    #     # _x = _x - _comp
-    #     # _y = _y - _comp
-    #     # k = abs(_x) + abs(_y) - abs(_x + _y)
-    #     # k = k / (k+0.00000001)
-    #     # x = x - torch.tensor(k*0.1).float().to(device)
-    #     return torch.nn.MSELoss()(x, y)
-
-    def train(self, epochs, train_model, criterion, optimizer, scaler):
+    def train(self, epochs, train_model, criterion, optimizer):
         model = train_model
-
         train_loss_list = []
         valid_loss_list = []
         test_loss_list = []
@@ -65,7 +44,7 @@ class Trainer:
             for data, target in self.train_loader:
                 data, target = data.to(device), target.to(device)
                 optimizer.zero_grad()
-                # output = ae_model(data)
+
                 output = model(data)
                 output = output[:, :, 0]
 
@@ -79,17 +58,23 @@ class Trainer:
             with torch.no_grad():
                 for data, target in self.valid_loader:
                     data, target = data.to(device), target.to(device)
+
                     output = model(data)
                     output = output[:, :, 0]
-                    valid_loss = criterion(output, target)
-                    valid_loss_list.append(valid_loss)
+
+                    model_loss = criterion(output, target)
+                    valid_loss = model_loss
+                    valid_loss_list.append(valid_loss.item())
 
                 for data, target in self.test_loader:
                     data, target = data.to(device), target.to(device)
+
                     output = model(data)
                     output = output[:, :, 0]
-                    test_loss = criterion(output, target)
-                    test_loss_list.append(test_loss)
+
+                    model_loss = criterion(output, target)
+                    test_loss = model_loss
+                    test_loss_list.append(test_loss.item())
 
             if valid_loss < max_loss and epoch > (epochs / 2):
                 # torch.save(train_model, self.path + '/model.pth')
@@ -98,7 +83,7 @@ class Trainer:
                         'state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'epoch': epoch
-                        }, self.path + '/model.pth')
+                        }, Util.path() + '/model.pth')
                 max_loss = valid_loss
                 print("valid_loss={:.6f}, test_los{:.6f}, Model Save".format(valid_loss, test_loss))
                 best_epoch = epoch
@@ -111,9 +96,11 @@ class Trainer:
                                                                                                     test_loss))
 
         if 'best_epoch' in locals():
-            f = open(self.path + '/result.txt', 'a+')
+            f = open(Util.file_path(), 'a+')
             f.write('\n\nbest_epoch: {}'.format(best_epoch))
             f.write('\nbest_train_loss: {}'.format(best_train_loss))
             f.write('\nbest_valid_loss: {}'.format(best_valid_loss))
             f.write('\nbest_test_loss: {}'.format(best_test_loss))
             f.close()
+
+        return train_loss_list, valid_loss_list, test_loss_list
