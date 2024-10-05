@@ -1,4 +1,3 @@
-import FinanceDataReader as fdr
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import numpy as np
 import torch
@@ -39,7 +38,6 @@ def prepare_data(x_encoded, y_close, time_steps, log_return=True, train=True):
     else:
         # y_close = (np.log(y_close) - np.log(y_close.shift(1)))[1:] # the log return, i.e. ln(y_t/y_(t-1))
         y_close = (np.log(y_close) - np.log(shift_elements(y_close, 1, 0)))[1:]  # the log return, i.e. ln(y_t/y_(t-1))
-
     if train:
         y = y_close[time_steps-1:]
     else:

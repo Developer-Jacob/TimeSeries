@@ -46,7 +46,7 @@ class Trainer:
                 optimizer.zero_grad()
 
                 output = model(data)
-                output = output[:, :, 0]
+                output = output[:, 0, 0]
 
                 loss = criterion(output, target)
                 loss.backward()
@@ -60,7 +60,7 @@ class Trainer:
                     data, target = data.to(device), target.to(device)
 
                     output = model(data)
-                    output = output[:, :, 0]
+                    output = output[:, 0:, 0]
 
                     model_loss = criterion(output, target)
                     valid_loss = model_loss
@@ -70,13 +70,14 @@ class Trainer:
                     data, target = data.to(device), target.to(device)
 
                     output = model(data)
-                    output = output[:, :, 0]
+                    output = output[:, 0:, 0]
 
                     model_loss = criterion(output, target)
                     test_loss = model_loss
                     test_loss_list.append(test_loss.item())
 
-            if valid_loss < max_loss and epoch > (epochs / 2):
+            # if valid_loss < max_loss and epoch > (epochs / 2):
+            if True:
                 # torch.save(train_model, self.path + '/model.pth')
                 torch.save(
                     {

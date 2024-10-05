@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from Const import device
-from AEModel import CnnAutoEncoder
 
 class LTSF_LSTM(torch.nn.Module):
     def __init__(self, input_window, output_window, feature_size, hidden_size):

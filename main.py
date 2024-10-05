@@ -21,8 +21,12 @@ from Util import path, make_file, drow_loss, show, showPLT
 def main():
     make_file()
 
-    need_normalize = True
+# * 인풋이 분봉 -> 아웃풋이 일봉
+# * 아웃풋 3일간의 고점 저점 예측
+
+    need_normalize = False
     epochs = Parser.param_epochs
+    encoder_epochs = Parser.param_encoder_epochs
     input_window = Parser.param_input_window
     output_window = Parser.param_output_window
     hidden_size = Parser.param_hidden_size
@@ -35,7 +39,7 @@ def main():
     data_list = generator.generateRowData(section_size=600)
     first_data, _ = data_list[0]
     feature_size = first_data[1].size
-    encoder = StackedAutoEncoder()
+    encoder = StackedAutoEncoder(n_epoch=encoder_epochs)
 
     # ---------------------------------------------------------------------------
     # --------------------------- STEP 0: MAKE MODEL ----------------------------
