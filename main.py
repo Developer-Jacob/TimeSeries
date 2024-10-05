@@ -1,27 +1,64 @@
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
+import numpy as np
+from torch.utils.data import TensorDataset, DataLoader, Dataset
 
 import Parser
-import Util
 from trainer import Trainer
 from RowData import sliding, normalize, split_data, prepare_data, to_tensor
 from model_lstm import LTSF_LSTM
 from Const import device
-
-import numpy as np
-import FinanceDataReader as fdr
 from StockData import StockData, StockDataGenerator, ExampleDataset
-from torch.utils.data import TensorDataset, DataLoader, Dataset
 from AEModel import CnnAutoEncoder, StackedAutoEncoder
-from Normalizer import Normalizer
 from Util import path, make_file, drow_loss, show, showPLT
 
+def prepare(data_set, need_encode):
+    input_window = Parser.param_input_window
+    if need_encode:
+        n_epoch = Parser.param_encoder_epochs
+
+        encoder = StackedAutoEncoder(n_epoch=n_epoch)
+
+        # Train Autoencoder
+        encoder.forward(data_set.train_data)
+
+        # Encode data
+        encoded_train_data = encoder.encoded_data(data_set.train_data)  # Numpy
+        encoded_valid_data = encoder.encoded_data(data_set.valid_data)  # Numpy
+        encoded_test_data = encoder.encoded_data(data_set.test_data)  # Numpy
+
+        extra_encoded_valid_data = np.concatenate((encoded_train_data[-input_window:], encoded_valid_data))
+        extra_encoded_test_data = np.concatenate((encoded_valid_data[-input_window:], encoded_test_data))
+
+        x_train, y_train = prepare_data(encoded_train_data, data_set.train_target, input_window, log_return=True,
+                                        train=True)
+        x_valid, y_valid = prepare_data(extra_encoded_valid_data, data_set.valid_target, input_window, log_return=False,
+                                        train=False)
+        x_test, y_test = prepare_data(extra_encoded_test_data, data_set.test_target, input_window, log_return=False,
+                                      train=False)
+        return to_tensor(x_train), to_tensor(y_train), x_valid, y_valid, x_test, y_test
+    else:
+        x_train, y_train = prepare_data(data_set.train_data, data_set.train_target, input_window, log_return=True,
+                                        train=True)
+        x_valid, y_valid = prepare_data(
+            data_set.valid_data.astype(np.float32),
+            data_set.valid_target.astype(np.float32),
+            input_window, log_return=False,train=False)
+        x_test, y_test = prepare_data(
+            data_set.test_data.astype(np.float32),
+            data_set.test_target.astype(np.float32),
+            input_window, log_return=False,train=False)
+        return (to_tensor(x_train),
+                to_tensor(y_train),
+                x_valid,
+                y_valid,
+                x_test,
+                y_test)
 
 def main():
-    make_file()
+    need_normalize = False
 
-    need_normalize = True
+    # Parser
     epochs = Parser.param_epochs
     input_window = Parser.param_input_window
     output_window = Parser.param_output_window
@@ -32,82 +69,56 @@ def main():
     # --------------------------- STEP 0: LOAD DATA -----------------------------
     # ---------------------------------------------------------------------------
     generator = StockDataGenerator()
-    data_list = generator.generateRowData(section_size=600)
-    first_data, _ = data_list[0]
-    feature_size = first_data[1].size
-    encoder = StackedAutoEncoder()
+    #ndarray
+    data_set = generator.allGenerateData()
 
     # ---------------------------------------------------------------------------
-    # --------------------------- STEP 0: MAKE MODEL ----------------------------
+    # ------------- STEP 2: NORMALIZE DATA --------------------------------------
     # ---------------------------------------------------------------------------
-    lstm_model = LTSF_LSTM(input_window, output_window, feature_size=10, hidden_size=hidden_size).to(device)
+    # if need_normalize:
+    #     data, target, scaler = normalize(data, target)
 
-    for (data, target) in data_list:
+    # ---------------------------------------------------------------------------
+    # ------------- STEP 3: ENCODE FEATURES USING STACKED AUTOENCODER -----------
+    # ---------------------------------------------------------------------------
+    train_x, train_y, valid_x, valid_y, test_x, test_y = prepare(data_set, need_encode=False)
 
-        # ---------------------------------------------------------------------------
-        # ----------------------- STEP 2.0: NORMALIZE DATA --------------------------
-        # ---------------------------------------------------------------------------
-        if need_normalize:
-            data, target, scaler = normalize(data, target)
+    # ---------------------------------------------------------------------------
+    # ------------- STEP 0: MAKE MODEL ------------------------------------------
+    # ---------------------------------------------------------------------------
+    feature_size = train_x.shape[2]
+    lstm_model = LTSF_LSTM(input_window, output_window, feature_size=feature_size, hidden_size=hidden_size).to(device)
 
-        # Split data
-        # x
-        train_data, valid_data, test_data = split_data(data)
-        # y
-        train_target, valid_target, test_target = split_data(target)
+    # ---------------------------------------------------------------------------
+    # ------------- STEP 4: MODEL TRAINING --------------------------------------
+    # ---------------------------------------------------------------------------
+    train_data_set = ExampleDataset(train_x, train_y)
+    valid_data_set = ExampleDataset(valid_x, valid_y)
+    test_data_set = ExampleDataset(test_x, test_y)
 
-        # ---------------------------------------------------------------------------
-        # ------------- STEP 3: ENCODE FEATURES USING STACKED AUTOENCODER -----------
-        # ---------------------------------------------------------------------------
-        # Train Autoencoder
-        encoder.forward(train_data)
+    train_loader = DataLoader(train_data_set, 64, shuffle=False)
+    valid_loader = DataLoader(valid_data_set, 1, shuffle=False)
+    test_loader = DataLoader(test_data_set, 1, shuffle=False)
 
-        # Encode data
-        encoded_train_data = encoder.encoded_data(train_data)   # Numpy
-        encoded_valid_data = encoder.encoded_data(valid_data)   # Numpy
-        encoded_test_data = encoder.encoded_data(test_data)     # Numpy
+    # Train
+    trainer = Trainer(train_loader, valid_loader, test_loader)
+    criterion = nn.MSELoss()
+    param = lstm_model.parameters()
+    optimizer = torch.optim.Adam(param, lr=learning_rate)
+    loss_train, loss_valid, loss_test = trainer.train(epochs, lstm_model, criterion, optimizer)
 
-        extra_encoded_valid_data = np.concatenate((encoded_train_data[-input_window:], encoded_valid_data))
-        extra_encoded_test_data = np.concatenate((encoded_valid_data[-input_window:], encoded_test_data))
+    result = trainer.eval(lstm_model)
+    result = result[:, :, 0]
+    # result = scaler.inverse_transform(result)
 
-        x_train, y_train = prepare_data(encoded_train_data, train_target, input_window, log_return=True, train=True)
-        x_valid, y_valid = prepare_data(extra_encoded_valid_data, valid_target, input_window, log_return=False, train=False)
-        x_test, y_test = prepare_data(extra_encoded_test_data, test_target, input_window, log_return=False, train=False)
+    real = data_set.real
 
-        # To Tensor
-        train_x = to_tensor(x_train)
-        train_y = to_tensor(y_train)
-        valid_x = x_valid
-        valid_y = y_valid
-        test_x = x_test
-        test_y = y_test
-
-        # Make data loader
-        train_data_set = ExampleDataset(train_x, train_y)
-        valid_data_set = ExampleDataset(valid_x, valid_y)
-        test_data_set = ExampleDataset(test_x, test_y)
-
-        train_loader = DataLoader(train_data_set, 64, shuffle=False)
-        valid_loader = DataLoader(valid_data_set, 1, shuffle=False)
-        test_loader = DataLoader(test_data_set, 1, shuffle=False)
-
-        # Train
-        trainer = Trainer(train_loader, valid_loader, test_loader)
-        criterion = nn.MSELoss()
-        param = lstm_model.parameters()
-        optimizer = torch.optim.Adam(param, lr=learning_rate)
-        loss_train, loss_valid, loss_test = trainer.train(epochs, lstm_model, criterion, optimizer)
-
-        result = trainer.eval(lstm_model)
-        result = result[:, :, 0]
-        # result = scaler.inverse_transform(result)
-
-        real = data.real
-
-        show(real, result, input_window, output_window)
+    show(real, result, input_window, output_window)
 
 if __name__ == "__main__":
     import ssl
     ssl._create_default_https_context = ssl._create_unverified_context
+
+    make_file()
 
     main()

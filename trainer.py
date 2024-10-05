@@ -46,7 +46,7 @@ class Trainer:
                 optimizer.zero_grad()
 
                 output = model(data)
-                output = output[:, :, 0]
+                output = output[:, 0, 0]
 
                 loss = criterion(output, target)
                 loss.backward()
@@ -58,9 +58,8 @@ class Trainer:
             with torch.no_grad():
                 for data, target in self.valid_loader:
                     data, target = data.to(device), target.to(device)
-
                     output = model(data)
-                    output = output[:, :, 0]
+                    output = output[:, 0:, 0]
 
                     model_loss = criterion(output, target)
                     valid_loss = model_loss
@@ -70,7 +69,7 @@ class Trainer:
                     data, target = data.to(device), target.to(device)
 
                     output = model(data)
-                    output = output[:, :, 0]
+                    output = output[:, 0:, 0]
 
                     model_loss = criterion(output, target)
                     test_loss = model_loss

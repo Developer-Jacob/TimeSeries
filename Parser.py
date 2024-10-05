@@ -1,7 +1,8 @@
 import argparse
 
 RANDOM_SEED = 42
-param_epochs = 100
+param_epochs = 1
+param_encoder_epochs = 10
 param_input_window = 4
 param_output_window = 1
 param_hidden_size = 128

@@ -30,21 +30,22 @@ class StackedAutoEncoder:
         if self.auto2 is None:
             self.auto2 = CnnAutoEncoder(self.num_hidden_1, self.num_hidden_2)
         self.auto2.train()
-        auto1_out = self.auto1.encoder(inputs).detach().numpy()
+        auto1_out = self.auto1.encoder(inputs).data.numpy()
         self.auto2.fit(auto1_out, n_epoch=self.n_epoch)
 
         if self.auto3 is None:
             self.auto3 = CnnAutoEncoder(self.num_hidden_2, self.num_hidden_3)
         self.auto3.train()
         auto1_out = torch.autograd.Variable(torch.from_numpy(auto1_out.astype(np.float32)))
-        auto2_out = self.auto2.encoder(auto1_out).detach().numpy()
+
+        auto2_out = self.auto2.encoder(auto1_out).data.numpy()
         self.auto3.fit(auto2_out, n_epoch=self.n_epoch)
 
         if self.auto4 is None:
             self.auto4 = CnnAutoEncoder(self.num_hidden_3, self.num_hidden_4)
         self.auto4.train()
         auto2_out = torch.autograd.Variable(torch.from_numpy(auto2_out.astype(np.float32)))
-        auto3_out = self.auto3.encoder(auto2_out).detach().numpy()
+        auto3_out = self.auto3.encoder(auto2_out).data.numpy()
         self.auto4.fit(auto3_out, n_epoch=self.n_epoch)
 
     def encoded_data(self, input_value):
@@ -70,7 +71,7 @@ class CnnAutoEncoder(nn.Module):
         super(CnnAutoEncoder, self).__init__()
         self.encoder = torch.nn.Sequential(
             nn.Linear(feature_dim, layer_size),
-            nn.Sigmoid()
+            nn.ReLU()
         )
         self.relu = nn.ReLU()
         self.decoder = nn.Linear(layer_size, feature_dim)
@@ -84,6 +85,7 @@ class CnnAutoEncoder(nn.Module):
     def forward(self, x):
         # x = x.transpose(1, 2)
         x = self.encoder(x)
+        # x[x == float('nan')] = 0
         mean = torch.mean(x, dim=0)
         sparsity_loss = torch.sum(self.kl_divergence(self.sparsity_target, mean))
         x = self.decoder(x)
@@ -91,7 +93,9 @@ class CnnAutoEncoder(nn.Module):
         return x, sparsity_loss
 
     def kl_divergence(self, p, q):
-        return p * torch.log(p / q) + (1 - p) * torch.log((1 - p) / (1 - q))  # Kullback Leibler divergence
+        value = p * torch.log(p / q) + (1 - p) * torch.log((1 - p) / (1 - q))
+        value[value == float('Inf')] = 0
+        return value # Kullback Leibler divergence
 
     def fit(self, x, n_epoch=10, batch_size=64, en_shuffle=False):
         for epoch in range(n_epoch):

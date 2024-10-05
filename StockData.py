@@ -1,9 +1,5 @@
 import FinanceDataReader as fdr
-from sklearn.preprocessing import MinMaxScaler
 import numpy as np
-import math
-import torch
-from AEModel import StackedAutoEncoder
 
 from torch.utils.data import Dataset
 
