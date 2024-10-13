@@ -1,12 +1,14 @@
 import argparse
 
 RANDOM_SEED = 42
-param_epochs = 1
+param_is_debug = False
+param_epochs = 3
 param_encoder_epochs = 10
-param_input_window = 4
+param_input_window = 16
 param_output_window = 1
-param_hidden_size = 128
-param_learning_rate = 0.0005
+param_hidden_size = 256
+param_learning_rate = 0.001
+
 
 def parse():
     args = argparse.ArgumentParser()

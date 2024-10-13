@@ -1,7 +1,7 @@
 import FinanceDataReader as fdr
 import numpy as np
-
 from torch.utils.data import Dataset
+
 
 class ExampleDataset(Dataset):
     def __init__(self, x, y):
@@ -65,6 +65,7 @@ class StockDataGenerator:
         open = df['Open'].to_numpy()
         high = df['High'].to_numpy()
         low = df['Low'].to_numpy()
+        volume = df['Volume'].to_numpy()
         #
         # open_ratio = df['OpenRatio'].to_numpy()
         # high_ratio = df['HighRatio'].to_numpy()
@@ -84,7 +85,7 @@ class StockDataGenerator:
         # volume_log_ema120 = df['VolumeLogEMA120'].to_numpy()
 
         result = [
-            close
+            close, open, high, low, volume
             # norm_open, norm_high, norm_low,
             # open_ratio, high_ratio, low_ratio,
             # bollinger_upper, bollinger_lower, bollinger_ma,
@@ -109,6 +110,16 @@ class StockDataGenerator:
 
         return result
 
+    def dummy(self):
+        return StockData(
+            np.arange(20).reshape(20, 1),
+            np.arange(100).reshape(100, 1),
+            np.arange(30).reshape(30, 1),
+            np.arange(30).reshape(30, 1),
+            np.arange(100),
+            np.arange(30),
+            np.arange(30)
+        )
     def allGenerateData(self):
         return self.generateData(0, len(self.data_frame))
 

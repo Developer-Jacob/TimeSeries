@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 def to_tensor(array):
-    return torch.tensor(np.array(array)).to(dtype=torch.float32)
+    return torch.tensor(array).to(dtype=torch.float32)
 
 def shift_elements(arr, num, fill_value):
     result = np.empty_like(arr)
@@ -23,8 +23,8 @@ def pct_change(data):
 def prepare_data(x_encoded, y_close, time_steps, log_return=True, train=True):
     ct = 0
     data = []
-    for i in range(len(x_encoded)-time_steps):
-        ct +=1
+    for i in range(len(x_encoded) - time_steps):
+        ct += 1
         if train:
             x_train = x_encoded[i:i+time_steps]
         else:
@@ -32,7 +32,7 @@ def prepare_data(x_encoded, y_close, time_steps, log_return=True, train=True):
 
         data.append(x_train)
 
-    if log_return==False:
+    if log_return == False:
         y_close = np.diff(y_close) / y_close[:-1]
         y_close = np.float32(y_close)
         # y_close = pct_change(y_close)
@@ -42,7 +42,7 @@ def prepare_data(x_encoded, y_close, time_steps, log_return=True, train=True):
     if train:
         y = y_close[time_steps-1:]
     else:
-        y=y_close
+        y = y_close
 
     result = zip(data, y)
     return zip(*result)

@@ -3,8 +3,11 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import torch
 import numpy as np
+
+import Parser
 from Const import device
 import Util
+
 
 class Trainer:
     def __init__(self, train_loader, valid_loader, test_loader):
@@ -46,7 +49,7 @@ class Trainer:
                 optimizer.zero_grad()
 
                 output = model(data)
-                output = output[:, 0, 0]
+                output = output[:, :, 0]
 
                 loss = criterion(output, target)
                 loss.backward()
@@ -59,7 +62,7 @@ class Trainer:
                 for data, target in self.valid_loader:
                     data, target = data.to(device), target.to(device)
                     output = model(data)
-                    output = output[:, 0:, 0]
+                    output = output[:, :, 0]
 
                     model_loss = criterion(output, target)
                     valid_loss = model_loss
@@ -69,13 +72,13 @@ class Trainer:
                     data, target = data.to(device), target.to(device)
 
                     output = model(data)
-                    output = output[:, 0:, 0]
+                    output = output[:, :, 0]
 
                     model_loss = criterion(output, target)
                     test_loss = model_loss
                     test_loss_list.append(test_loss.item())
 
-            if valid_loss < max_loss and epoch > (epochs / 2):
+            if valid_loss < max_loss and epoch > (epochs / 2) or Parser.param_is_debug:
                 # torch.save(train_model, self.path + '/model.pth')
                 torch.save(
                     {
