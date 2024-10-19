@@ -22,7 +22,8 @@ class LTSF_LSTM(torch.nn.Module):
         )
 
         self.relu = nn.ReLU()
-        self.f = nn.Linear(self.hidden_size, 1)
+        self.f = nn.Linear(self.hidden_size, self.hidden_size//2)
+        self.f2 = nn.Linear(self.hidden_size//2, 1)
         self.bidirectional_f = nn.Linear(self.hidden_size * 2, 1)
     def forward(self, x):
         if self.bidirectional == True:
@@ -36,6 +37,7 @@ class LTSF_LSTM(torch.nn.Module):
             c_0 = Variable(torch.zeros(self.num_layers, x.size(0), self.hidden_size)).to(device)  # internal state
             output, (hidden, _) = self.lstm(x, (h_0, c_0))
             out = output[:, -self.output_window:, :]
-            out = self.f(out)
+            out = nn.ReLU()(self.f(out))
+            out = nn.ReLU()(self.f2(out))
 
         return out

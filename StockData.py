@@ -39,10 +39,10 @@ class StockDataGenerator:
         # df['OpenRatio'] = s.fit_transform(((df['Open'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
         # df['LowRatio'] = s.transform(((df['Low'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
         # df['HighRatio'] = s.transform(((df['High'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
-        # df['MA'] = df['NormClose'].rolling(window=20).mean()
-        # std = df['NormClose'].rolling(window=20).std()
-        # df['Upper'] = df['MA'] + (2 * std)  # 상단밴드
-        # df['Lower'] = df['MA'] - (2 * std)  # 하단밴드
+        df['MA'] = df['Close'].rolling(window=20).mean()
+        std = df['Close'].rolling(window=20).std()
+        df['Upper'] = df['MA'] + (2 * std)  # 상단밴드
+        df['Lower'] = df['MA'] - (2 * std)  # 하단밴드
         #
         # windows = [5, 10, 20, 60, 120]
         #
@@ -66,13 +66,14 @@ class StockDataGenerator:
         high = df['High'].to_numpy()
         low = df['Low'].to_numpy()
         volume = df['Volume'].to_numpy()
+        nasdaq = df['Nasdaq_Close'].to_numpy()
         #
         # open_ratio = df['OpenRatio'].to_numpy()
         # high_ratio = df['HighRatio'].to_numpy()
         # low_ratio = df['LowRatio'].to_numpy()
-        # bollinger_upper = df['Upper'].to_numpy()
-        # bollinger_lower = df['Lower'].to_numpy()
-        # bollinger_ma = df['MA'].to_numpy()
+        bollinger_upper = df['Upper'].to_numpy()
+        bollinger_lower = df['Lower'].to_numpy()
+        bollinger_ma = df['MA'].to_numpy()
         # norm_close_ema5 = df['NormCloseEMA5'].to_numpy()
         # norm_close_ema10 = df['NormCloseEMA10'].to_numpy()
         # norm_close_ema20 = df['NormCloseEMA20'].to_numpy()
@@ -85,7 +86,9 @@ class StockDataGenerator:
         # volume_log_ema120 = df['VolumeLogEMA120'].to_numpy()
 
         result = [
-            close, open, high, low, volume
+            close, open, high, low, volume,
+            bollinger_upper, bollinger_lower, bollinger_ma,
+            nasdaq
             # norm_open, norm_high, norm_low,
             # open_ratio, high_ratio, low_ratio,
             # bollinger_upper, bollinger_lower, bollinger_ma,
@@ -94,7 +97,7 @@ class StockDataGenerator:
         ]
         result = np.array(result).transpose(1, 0).copy()
 
-        return result, close
+        return result[20:], close[20:]
 
     def generateRowData(self, section_size=600):
         result = []
@@ -113,12 +116,12 @@ class StockDataGenerator:
     def dummy(self):
         return StockData(
             np.arange(20).reshape(20, 1),
-            np.arange(100).reshape(100, 1),
-            np.arange(30).reshape(30, 1),
-            np.arange(30).reshape(30, 1),
-            np.arange(100),
-            np.arange(30),
-            np.arange(30)
+            np.arange(1, 101).reshape(100, 1),
+            np.arange(1, 31).reshape(30, 1),
+            np.arange(101, 200, 3).reshape(33, 1),
+            np.arange(1, 101),
+            np.arange(1, 31),
+            np.arange(101, 200, 3)
         )
     def allGenerateData(self):
         return self.generateData(0, len(self.data_frame))
@@ -167,5 +170,12 @@ class StockDataGenerator:
     def __init__(self, target_class='Close'):
         self.target_class = target_class
         self.data_frame = fdr.DataReader('S&P500', '1985').copy()
+        # nasdaq = fdr.StockListing('NASDAQ')
+        # nyse = fdr.StockListing('NYSE')
+        # US5YT = fdr.DataReader('US5YT')  # 5년 만기 미국국채 수익률
+        # US10YT = fdr.DataReader('US10YT')  # 10년 만기 미국국채 수익률
+        # US30YT = fdr.DataReader('US30YT')  # 30년 만기 미국국채 수익률
+        self.nasdaq = fdr.DataReader('IXIC', '1985').copy()  # 나스닥 종합지수 (IXIC - NASDAQ Composite)
+        self.data_frame['Nasdaq_Close'] = self.nasdaq['Close']
         print('Total Data length:', len(self.data_frame))
         self.total_data_size = len(self.data_frame)

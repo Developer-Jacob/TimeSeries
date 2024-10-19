@@ -33,12 +33,13 @@ def prepare_data(x_encoded, y_close, time_steps, log_return=True, train=True):
         data.append(x_train)
 
     if log_return == False:
-        y_close = np.diff(y_close) / y_close[:-1]
+        y_close = np.diff(y_close) / y_close[..., :-1]
         y_close = np.float32(y_close)
         # y_close = pct_change(y_close)
     else:
         # y_close = (np.log(y_close) - np.log(y_close.shift(1)))[1:] # the log return, i.e. ln(y_t/y_(t-1))
-        y_close = (np.log(y_close) - np.log(shift_elements(y_close, 1, 0)))[1:]  # the log return, i.e. ln(y_t/y_(t-1))
+        shifted = shift_elements(y_close, 1, 0)
+        y_close = (np.log(y_close) - np.log(shifted))[1:]  # the log return, i.e. ln(y_t/y_(t-1))
     if train:
         y = y_close[time_steps-1:]
     else:
@@ -47,16 +48,19 @@ def prepare_data(x_encoded, y_close, time_steps, log_return=True, train=True):
     result = zip(data, y)
     return zip(*result)
 
-def sliding(target, data, input_window, output_window, stride=1):
+def sliding_on_off(data, target, input_window, output_window, stride=1, diff=False):
+    data = np.transpose(np.diff(np.transpose(data))) / data[:-1] * 100
+    target = np.diff(target) / target[..., :-1] * 100
+    target = np.where(target > 0, 1, 0)
     # 데이터의 개수
     L = data.shape[0]
     feature_size = data.shape[1]
     # stride씩 움직이는데 몇번움직임 가능한지
-    num_samples = (L - input_window - output_window) // output_window
+    num_samples = (L - input_window - output_window + 1) // stride
 
     # input, output
-    X = np.zeros([input_window, num_samples, feature_size])
-    Y = np.zeros([output_window, num_samples])
+    X = np.zeros([num_samples, input_window, feature_size])
+    Y = np.zeros([num_samples, output_window])
 
     for i in np.arange(num_samples):
         start_x = stride * i
@@ -65,16 +69,39 @@ def sliding(target, data, input_window, output_window, stride=1):
         start_y = stride * i + input_window
         end_y = start_y + output_window
 
-        X[:, i] = data[start_x:end_x]
-        Y[:, i] = target[start_y:end_y]
+        X[i] = data[start_x:end_x]
+        Y[i] = target[start_y:end_y]
 
-    X = X.reshape(X.shape[1], X.shape[0], feature_size)  # (3012, 5, 72)
-    Y = Y.reshape(Y.shape[1], Y.shape[0])  # (3012, 24)
+    return X, Y
 
-    return (
-        torch.tensor(np.array(X)).to(dtype=torch.float32),
-        torch.tensor(np.array(Y)).to(dtype=torch.float32)
-    )
+def sliding(input_data, input_target, input_window, output_window, stride=1, diff=False):
+    if diff:
+        data = np.transpose(np.diff(np.transpose(input_data))) / input_data[:-1] * 100
+        target = np.diff(input_target) / input_target[..., :-1] * 100
+    else:
+        data = input_data
+        target = input_target
+    # 데이터의 개수
+    L = data.shape[0]
+    feature_size = data.shape[1]
+    # stride씩 움직이는데 몇번움직임 가능한지
+    num_samples = (L - input_window - output_window + 1) // stride
+
+    # input, output
+    X = np.zeros([num_samples, input_window, feature_size])
+    Y = np.zeros([num_samples, output_window])
+
+    for i in np.arange(num_samples):
+        start_x = stride * i
+        end_x = start_x + input_window
+
+        start_y = stride * i + input_window
+        end_y = start_y + output_window
+
+        X[i] = data[start_x:end_x]
+        Y[i] = target[start_y:end_y]
+
+    return X, Y.squeeze()
 
 def split_data(data, train_ratio=0.8):
     # Count

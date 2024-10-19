@@ -2,14 +2,9 @@ from datetime import datetime
 import os
 import matplotlib.pyplot as plt
 import Parser
-dir_path = ""
 import torch
 
-def collate_fn(batchDummy):
-    x = [torch.LongTensor(batch[0])for batch in batchDummy]
-    # batch단위로 데이터가 넘어올 때 아래 pad_sequence를 통해 알아서 padding을 해준다
-    x = torch.nn.utils.rnn.pad_sequence(x, batch_first=True)
-    return {'x' : x}
+dir_path = ""
 
 def path():
     date_str = datetime.today().strftime("%Y%m%d")
@@ -52,16 +47,33 @@ def showPLT(data, encoded):
     plt.show()
 
 import numpy as np
-def showTemp(real, result, compare, section=100, show=False):
+def showTemp2(real, pred):
+    real_one_zero = np.where(np.diff(real[15:]) > 0, 1, 0)
+
+def show_new(list, term=0, section=100):
+    fig = plt.figure(figsize=(20, 5))
+    for index, data in enumerate(list):
+        show_data = np.where(len(data) < section, data, data[-section:])
+        start = index * term
+        end = start + len(show_data)
+        plt.plot(range(start, end), show_data, '.-')
+
+
+def showTemp(real, result, section=100):
     fig = plt.figure(figsize=(20, 5))
 
-    compare = np.insert(compare, 0, [0, 0, 0])
     start = len(real) - section
     if start < 0:
         start = 0
     end = len(real) - 1
     plt.plot(range(start, end), result[start:end], 'b.-')
     plt.plot(range(start, end), real[start:end], 'r.-')
+    plt.savefig(path() + '/result.png')
+
+
+def show_on_off(real, pred, section=100):
+    fig = plt.figure(figsize=(20, 5))
+    start = len(real) - section
 
     if show:
         plt.show()
@@ -69,10 +81,10 @@ def showTemp(real, result, compare, section=100, show=False):
         plt.savefig(path() + '/result.png')
 def printt(real, predit, result, compare):
     f = open(file_path(), 'a+')
-    f.write('\n\n real: {}'.format(real[-10:]))
-    f.write('\n\n predict: {}'.format(predit[-10:]))
-    f.write('\n\n real compare: {}'.format(result[-10:]))
-    f.write('\n\n predict compare: {}'.format(compare[-10:]))
+    f.write('\n\n real: {}'.format(real[-10:-1]))
+    f.write('\n\n predict: {}'.format(predit[-9:]))
+    f.write('\n\n real compare: {}'.format(result[-10:-1]))
+    f.write('\n\n predict compare: {}'.format(compare[-9:]))
     f.close()
 
 def show(real, result, input_window, output_window, show=False):
@@ -108,27 +120,3 @@ def show(real, result, input_window, output_window, show=False):
         plt.show()
     else:
         plt.savefig(path() + '/result.png')
-#
-# def show_data(data_generator):
-#     plt.figure(figsize=(20,10))
-#     data = data_generator.test.transpose(1, 0)
-#
-#     plt.subplot(2, 3, 1)
-#     for i in range(0, 4):
-#         plt.plot(data[i])
-#     plt.subplot(2, 3, 2)
-#     for i in range(4, 7):
-#         plt.plot(data[i])
-#     plt.subplot(2, 3, 3)
-#     for i in range(7, 10):
-#         plt.plot(data[i])
-#     plt.subplot(2, 3, 4)
-#     for i in range(10, 15):
-#         plt.plot(data[i])
-#     plt.subplot(2, 3, 5)
-#     for i in range(15, 20):
-#         plt.plot(data[i])
-#     plt.subplot(2, 3, 6)
-#     for i in range(0, len(data)):
-#         plt.plot(data[i])
-#     plt.show()
