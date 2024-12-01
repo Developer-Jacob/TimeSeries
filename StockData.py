@@ -1,7 +1,7 @@
 import FinanceDataReader as fdr
 import numpy as np
 from torch.utils.data import Dataset
-
+from ReadExcel import read_csv_to_dataframe
 
 class ExampleDataset(Dataset):
     def __init__(self, x, y):
@@ -39,7 +39,10 @@ class StockDataGenerator:
         # df['OpenRatio'] = s.fit_transform(((df['Open'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
         # df['LowRatio'] = s.transform(((df['Low'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
         # df['HighRatio'] = s.transform(((df['High'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
+        df = df.copy()
         df['MA'] = df['Close'].rolling(window=20).mean()
+
+
         std = df['Close'].rolling(window=20).std()
         df['Upper'] = df['MA'] + (2 * std)  # 상단밴드
         df['Lower'] = df['MA'] - (2 * std)  # 하단밴드
@@ -66,7 +69,7 @@ class StockDataGenerator:
         high = df['High'].to_numpy()
         low = df['Low'].to_numpy()
         volume = df['Volume'].to_numpy()
-        nasdaq = df['Nasdaq_Close'].to_numpy()
+        # nasdaq = df['Nasdaq_Close'].to_numpy()
         #
         # open_ratio = df['OpenRatio'].to_numpy()
         # high_ratio = df['HighRatio'].to_numpy()
@@ -86,9 +89,9 @@ class StockDataGenerator:
         # volume_log_ema120 = df['VolumeLogEMA120'].to_numpy()
 
         result = [
-            close, open, high, low, volume,
+            close, open, high, low,
             bollinger_upper, bollinger_lower, bollinger_ma,
-            nasdaq
+            # nasdaq
             # norm_open, norm_high, norm_low,
             # open_ratio, high_ratio, low_ratio,
             # bollinger_upper, bollinger_lower, bollinger_ma,
@@ -96,7 +99,6 @@ class StockDataGenerator:
             # volume_log_ema5, volume_log_ema10, volume_log_ema20, volume_log_ema60, volume_log_ema120,
         ]
         result = np.array(result).transpose(1, 0).copy()
-
         return result[20:], close[20:]
 
     def generateRowData(self, section_size=600):
@@ -170,12 +172,16 @@ class StockDataGenerator:
     def __init__(self, target_class='Close'):
         self.target_class = target_class
         self.data_frame = fdr.DataReader('S&P500', '1985').copy()
+        # self.data_frame = read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
+        # print(self.data_frame)
         # nasdaq = fdr.StockListing('NASDAQ')
         # nyse = fdr.StockListing('NYSE')
         # US5YT = fdr.DataReader('US5YT')  # 5년 만기 미국국채 수익률
         # US10YT = fdr.DataReader('US10YT')  # 10년 만기 미국국채 수익률
         # US30YT = fdr.DataReader('US30YT')  # 30년 만기 미국국채 수익률
-        self.nasdaq = fdr.DataReader('IXIC', '1985').copy()  # 나스닥 종합지수 (IXIC - NASDAQ Composite)
-        self.data_frame['Nasdaq_Close'] = self.nasdaq['Close']
+        # 2, 5, 10
+        # 금?, 유가?
+        # self.nasdaq = fdr.DataReader('IXIC', '1985').copy()  # 나스닥 종합지수 (IXIC - NASDAQ Composite)
+        # self.data_frame['Nasdaq_Close'] = self.nasdaq['Close']
         print('Total Data length:', len(self.data_frame))
         self.total_data_size = len(self.data_frame)

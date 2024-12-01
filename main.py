@@ -12,7 +12,8 @@ from StockData import StockData, StockDataGenerator, ExampleDataset
 from AEModel import CnnAutoEncoder, StackedAutoEncoder
 from Util import path, make_file, drow_loss, show, showPLT, showTemp, printt
 from LossFunctions import LogLossFunction
-
+from ReadExcel import read_csv_to_dataframe
+from VMRNN import VMRNN
 
 def prepare(data_set, need_encode):
     input_window = Parser.param_input_window
@@ -98,14 +99,15 @@ def main():
 
     print("--------------------------- STEP 4 MAKE MODEL ------------------------")
     feature_size = train_x.shape[2]
-    lstm_model = LTSF_LSTM(input_window, output_window, feature_size=feature_size, hidden_size=hidden_size).to(device)
+    # lstm_model = LTSF_LSTM(input_window, output_window, feature_size=feature_size, hidden_size=hidden_size).to(device)
+    lstm_model = VMRNN(feature_size, hidden_size, output_window, num_layers=3, d_model=32)
 
     print("--------------------------- STEP 5 MAKE DATALOADER -------------------")
     train_data_set = ExampleDataset(train_x, train_y)
     valid_data_set = ExampleDataset(valid_x, valid_y)
     test_data_set = ExampleDataset(test_x, test_y)
 
-    train_loader = DataLoader(train_data_set, batch_size, shuffle=True)
+    train_loader = DataLoader(train_data_set, batch_size, shuffle=False)
     valid_loader = DataLoader(valid_data_set, len(valid_data_set), shuffle=False)
     test_loader = DataLoader(test_data_set, len(test_data_set), shuffle=False)
 
@@ -113,8 +115,8 @@ def main():
     # Train
     trainer = Trainer(train_loader, valid_loader, test_loader)
     if Parser.param_is_train_mode:
-        # criterion = nn.MSELoss()
-        criterion = LogLossFunction
+        criterion = nn.MSELoss()
+        # criterion = LogLossFunction
         param = lstm_model.parameters()
         optimizer = torch.optim.Adam(param, lr=learning_rate)
         loss_train, loss_valid, loss_test = trainer.train(epochs, lstm_model, criterion, optimizer)

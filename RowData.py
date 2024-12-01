@@ -76,8 +76,13 @@ def sliding_on_off(data, target, input_window, output_window, stride=1, diff=Fal
 
 def sliding(input_data, input_target, input_window, output_window, stride=1, diff=False):
     if diff:
-        data = np.transpose(np.diff(np.transpose(input_data))) / input_data[:-1] * 100
-        target = np.diff(input_target) / input_target[..., :-1] * 100
+        diffed = np.transpose(np.diff(np.transpose(input_data)))
+        pre_input = input_data[:-1]
+        data = np.where(pre_input != 0, diffed/pre_input, 0) * 100
+        # data2 = np.transpose(np.diff(np.transpose(input_data))) / input_data[:-1] * 100
+        deffed2 = np.diff(input_target)
+        pre_input2 = input_target[..., :-1]
+        target = np.where(pre_input2 != 0, deffed2/pre_input2, 0) * 100
     else:
         data = input_data
         target = input_target
