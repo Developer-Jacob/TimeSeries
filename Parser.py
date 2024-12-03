@@ -4,12 +4,14 @@ RANDOM_SEED = 42
 param_is_debug = False
 param_epochs = 200
 param_encoder_epochs = 10
-param_input_window = 4
+param_input_window = 8
 param_output_window = 1
-param_hidden_size = 256
+param_hidden_size = 128
 param_learning_rate = 0.001
 param_batch_size = 64
 param_is_train_mode = True
+feature_size = 0
+
 
 def parse():
     args = argparse.ArgumentParser()
@@ -28,5 +30,13 @@ def parse():
 
     return args.parse_args()
 
+
+def print_params():
+    print("Epochs:          ", param_epochs)
+    print("Input window:    ", param_input_window)
+    print("Output window:   ", param_output_window)
+    print("Hidden Size:     ", param_hidden_size)
+    print("Learning rate:   ", param_learning_rate)
+    print("Batch size:      ", param_batch_size)
 
 config = parse()

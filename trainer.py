@@ -1,12 +1,10 @@
-from torch.utils.data import TensorDataset
-from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import torch
 import numpy as np
-
 import Parser
 from Const import device
 import Util
+from EarlyStopping import EarlyStopping
 
 
 class Trainer:
@@ -34,6 +32,7 @@ class Trainer:
         return pred
 
     def train(self, epochs, train_model, criterion, optimizer):
+        early_stopping = EarlyStopping(patience=5, verbose=True)
         model = train_model
         train_loss_list = []
         valid_loss_list = []
@@ -78,6 +77,11 @@ class Trainer:
                     test_loss = model_loss
                     test_loss_list.append(test_loss.item())
 
+            early_stopping(valid_loss.item())
+
+            if early_stopping.early_stop:
+                return 0, valid_loss.item(), 0
+
             if valid_loss < max_loss and epoch > (epochs / 2) or Parser.param_is_debug:
                 # torch.save(train_model, self.path + '/model.pth')
                 torch.save(
@@ -105,4 +109,5 @@ class Trainer:
             f.write('\nbest_test_loss: {}'.format(best_test_loss))
             f.close()
 
-        return train_loss_list, valid_loss_list, test_loss_list
+        return best_train_loss, best_valid_loss, best_test_loss
+

@@ -2,6 +2,9 @@ import FinanceDataReader as fdr
 import numpy as np
 from torch.utils.data import Dataset
 
+import Parser
+from ReadExcel import read_csv_to_dataframe
+
 
 class ExampleDataset(Dataset):
     def __init__(self, x, y):
@@ -13,6 +16,7 @@ class ExampleDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.x[idx], self.y[idx]
+
 
 class StockData:
     def __init__(self, real, train, valid, test, train_target, valid_target, test_target):
@@ -26,12 +30,6 @@ class StockData:
 
 
 class StockDataGenerator:
-    def FFT(self, data, topn=20):
-        fft = np.fft.fft(data)
-        fft[topn:-topn] = 0
-        ifft = np.fft.ifft(fft)
-        return abs(ifft)
-
     def augment(self, df):
         # Train
 
@@ -39,7 +37,10 @@ class StockDataGenerator:
         # df['OpenRatio'] = s.fit_transform(((df['Open'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
         # df['LowRatio'] = s.transform(((df['Low'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
         # df['HighRatio'] = s.transform(((df['High'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
+        df = df.copy()
         df['MA'] = df['Close'].rolling(window=20).mean()
+
+
         std = df['Close'].rolling(window=20).std()
         df['Upper'] = df['MA'] + (2 * std)  # 상단밴드
         df['Lower'] = df['MA'] - (2 * std)  # 하단밴드
@@ -66,7 +67,7 @@ class StockDataGenerator:
         high = df['High'].to_numpy()
         low = df['Low'].to_numpy()
         volume = df['Volume'].to_numpy()
-        nasdaq = df['Nasdaq_Close'].to_numpy()
+        # nasdaq = df['Nasdaq_Close'].to_numpy()
         #
         # open_ratio = df['OpenRatio'].to_numpy()
         # high_ratio = df['HighRatio'].to_numpy()
@@ -85,18 +86,26 @@ class StockDataGenerator:
         # volume_log_ema60 = df['VolumeLogEMA60'].to_numpy()
         # volume_log_ema120 = df['VolumeLogEMA120'].to_numpy()
 
-        result = [
-            close, open, high, low, volume,
-            bollinger_upper, bollinger_lower, bollinger_ma,
-            nasdaq
-            # norm_open, norm_high, norm_low,
-            # open_ratio, high_ratio, low_ratio,
-            # bollinger_upper, bollinger_lower, bollinger_ma,
-            # norm_close_ema5, norm_close_ema10, norm_close_ema20, norm_close_ema60, norm_close_ema120,
-            # volume_log_ema5, volume_log_ema10, volume_log_ema20, volume_log_ema60, volume_log_ema120,
-        ]
-        result = np.array(result).transpose(1, 0).copy()
+        def value(key):
+            return df[key].to_numpy()
 
+        self.data_class = [
+            "Close", "Open", "High", "Low",
+            "Upper", "Lower", "MA"
+        ]
+        result = list(map(value, self.data_class))
+        # result = [
+        #     close, open, high, low,
+        #     bollinger_upper, bollinger_lower, bollinger_ma,
+        #     # nasdaq
+        #     # norm_open, norm_high, norm_low,
+        #     # open_ratio, high_ratio, low_ratio,
+        #     # bollinger_upper, bollinger_lower, bollinger_ma,
+        #     # norm_close_ema5, norm_close_ema10, norm_close_ema20, norm_close_ema60, norm_close_ema120,
+        #     # volume_log_ema5, volume_log_ema10, volume_log_ema20, volume_log_ema60, volume_log_ema120,
+        # ]
+        Parser.feature_size = len(result)
+        result = np.array(result).transpose(1, 0).copy()
         return result[20:], close[20:]
 
     def generateRowData(self, section_size=600):
@@ -124,7 +133,17 @@ class StockDataGenerator:
             np.arange(101, 200, 3)
         )
     def allGenerateData(self):
-        return self.generateData(0, len(self.data_frame))
+        data_set = self.generateData(0, len(self.data_frame))
+        print("Data class:         ", self.data_class)
+        print("Target class:       ", self.target_class)
+        print("Train data shape:   ", data_set.train_data.shape)
+        print("Train target shape: ", data_set.train_target.shape)
+        print("Valid data shape:   ", data_set.valid_data.shape)
+        print("Valid target shape: ", data_set.valid_target.shape)
+        print("Test data shape:    ", data_set.test_data.shape)
+        print("Test target shape:  ", data_set.test_target.shape)
+
+        return data_set
 
     def generateData(self, start_index, section_size, train_ratio=0.8):
         end_index = start_index + section_size
@@ -170,12 +189,16 @@ class StockDataGenerator:
     def __init__(self, target_class='Close'):
         self.target_class = target_class
         self.data_frame = fdr.DataReader('S&P500', '1985').copy()
+        # self.data_frame = read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
+        # print(self.data_frame)
         # nasdaq = fdr.StockListing('NASDAQ')
         # nyse = fdr.StockListing('NYSE')
         # US5YT = fdr.DataReader('US5YT')  # 5년 만기 미국국채 수익률
         # US10YT = fdr.DataReader('US10YT')  # 10년 만기 미국국채 수익률
         # US30YT = fdr.DataReader('US30YT')  # 30년 만기 미국국채 수익률
-        self.nasdaq = fdr.DataReader('IXIC', '1985').copy()  # 나스닥 종합지수 (IXIC - NASDAQ Composite)
-        self.data_frame['Nasdaq_Close'] = self.nasdaq['Close']
+        # 2, 5, 10
+        # 금?, 유가?
+        # self.nasdaq = fdr.DataReader('IXIC', '1985').copy()  # 나스닥 종합지수 (IXIC - NASDAQ Composite)
+        # self.data_frame['Nasdaq_Close'] = self.nasdaq['Close']
         print('Total Data length:', len(self.data_frame))
         self.total_data_size = len(self.data_frame)
