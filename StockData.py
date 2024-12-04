@@ -123,8 +123,9 @@ class StockDataGenerator:
         return result
 
     def dummy(self):
+        Parser.feature_size = 1
         return StockData(
-            np.arange(20).reshape(20, 1),
+            np.arange(20),
             np.arange(1, 101).reshape(100, 1),
             np.arange(1, 31).reshape(30, 1),
             np.arange(101, 200, 3).reshape(33, 1),

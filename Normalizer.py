@@ -1,9 +1,14 @@
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
+from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import QuantileTransformer
+
 
 class Normalizer:
     def __init__(self):
-        self.scaler = MinMaxScaler(feature_range=(0, 1))
+        # self.scaler = MinMaxScaler(feature_range=(0, 1))
+        self.scaler = RobustScaler()
+        self.scaler = QuantileTransformer()
 
     def fit(self, train_data):
         """훈련 데이터로 정규화 기준 학습"""
@@ -16,6 +21,7 @@ class Normalizer:
     def inverse_transform(self, data):
         """정규화된 데이터를 원본 값으로 복원"""
         return self.scaler.inverse_transform(data)
+
 
 if __name__ == "__main__":
     # 예제 데이터

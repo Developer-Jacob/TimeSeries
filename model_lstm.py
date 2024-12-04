@@ -5,9 +5,8 @@ from Const import device
 
 
 class LTSF_LSTM(torch.nn.Module):
-    def __init__(self, input_window, output_window, feature_size, hidden_size, dropout=0.2):
+    def __init__(self, output_window, feature_size, hidden_size, dropout=0.2):
         super(LTSF_LSTM, self).__init__()
-        self.input_window = input_window
         self.output_window = output_window
         self.hidden_size = hidden_size
         self.feature_size = feature_size

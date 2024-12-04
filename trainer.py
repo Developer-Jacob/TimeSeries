@@ -82,7 +82,7 @@ class Trainer:
             if early_stopping.early_stop:
                 return 0, valid_loss.item(), 0
 
-            if valid_loss < max_loss and epoch > (epochs / 2) or Parser.param_is_debug:
+            if valid_loss < max_loss and epoch > (epochs / 4) or Parser.param_is_debug:
                 # torch.save(train_model, self.path + '/model.pth')
                 torch.save(
                     {
