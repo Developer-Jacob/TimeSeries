@@ -12,67 +12,48 @@ import torch.nn as nn
 from Util import showTemp, printt
 import numpy as np
 def main():
-    mode = "study"
-    need_normalize = True
     print("Device: ", device)
-    print("--------------------------- STEP 0 CONSTANT --------------------------")
-    Parser.print_params()
 
     print("--------------------------- STEP 1 DATA GENERATOR --------------------")
     generator = StockDataGenerator()
     data_set = generator.allGenerateData()  # ndarray
     # data_set = generator.dummy()
 
-    print("--------------------------- STEP 2 PREPARE DATA ----------------------")
-    preprocessor = Preprocessor(data_set, Parser.param_input_window, Parser.param_output_window)
-    values = preprocessor.processed(need_diff=True, need_normalize=need_normalize)
-    train_x, train_y, valid_x, valid_y, test_x, test_y = values
+    mode = "study"
 
-    print("--------------------------- STEP 3 MAKE MODEL ------------------------")
-    # feature_size = train_x.shape[2]
+    epochs = Parser.param_epochs
+    preprocessor = Preprocessor(data_set, need_diff=True, need_norm=True, verbose=False)
+    print("--------------------------- STEP 2 TRAINING MODE: ", mode, "--------------------")
 
-    print("--------------------------- STEP 4 MAKE DATALOADER -------------------")
-    train_loader, valid_loader, test_loader = data_loader(train_x, train_y, valid_x, valid_y, test_x, test_y)
-
-    trainer = Trainer(train_loader, valid_loader, test_loader)
-    lstm_model = None
+    pred = None
+    input_window = None
     if mode == "study":
-        print("--------------------------- STEP 6 STUDYING ---------------------------")
-        student = Student(trainer)
+        student = Student(epochs, preprocessor, _make_trainer, _make_model)
         student.study()
-        lstm_model = student.train_with_best_params()
-
+        lstm_model, trainer = student.train_with_best_params()
+        pred = trainer.eval(lstm_model)
+        input_window = student.best_input_window()
     elif mode == "train":
-        print("--------------------------- STEP 6 TRAINING ---------------------------")
+        input_window = Parser.param_input_window
+        output_window = Parser.param_output_window
+        hidden_size = Parser.param_hidden_size
+        learning_rate = Parser.param_learning_rate
+        model, optimizer, criterion = _make_model(output_window, hidden_size, 0.2, learning_rate)
+        trainer = _make_trainer(preprocessor, input_window, output_window)
+        loss_train, loss_valid, loss_test = trainer.train(Parser.param_epochs, model, criterion, optimizer)
+        pred = trainer.eval(model)
 
-        # {'hidden_size': 32, 'input_window': 20, 'dropout_rate': 0.2472467993983693,
-        #  'learning_rate': 0.009602014523437915}
-        # 0.0015953697729855776
-
-        lstm_model = LTSF_LSTM(
-            Parser.param_output_window,
-            feature_size=Parser.feature_size,
-            hidden_size=32,
-            dropout=0.247
-        ).to(device)
-
-        optimizer = torch.optim.Adam(lstm_model.parameters(), lr=0.0096)
-        criterion = nn.MSELoss()
-
-        loss_train, loss_valid, loss_test = trainer.train(Parser.param_epochs, lstm_model, criterion, optimizer)
-
-    print("--------------------------- STEP 7 SHOW RESULT -------------------------")
-    if lstm_model is None:
-        print("No trained")
-    pred = trainer.eval(lstm_model)
+    if pred is None:
+        print("!! No prediction")
+        return
     pred = pred[:, :, 0]
-    if need_normalize:
-        pred = preprocessor.inverse_normalize_test_target(pred)
+
+    pred = preprocessor.inverse_normalize_test_target(pred)
 
     real = data_set.test_target
     output = []
     for index, _ in enumerate(real):
-        diff_index = index - Parser.param_input_window
+        diff_index = index - input_window
         if len(pred) <= diff_index:
             break
         if diff_index < 0:
@@ -84,8 +65,40 @@ def main():
     output = np.array(output)
     print("Output shape: ", output.shape)
     showTemp(real, np.array(output))
-    printt(real, np.array(output), test_y, pred)
+    # printt(real, np.array(output), test_y, pred)
 
+    output2 = []
+
+    # pred는 슬라이딩 윈도우의 결과이므로 offset을 고려
+    for index in range(input_window, len(real)):
+        diff_index = index - input_window
+        if diff_index >= len(pred):
+            break
+        # 이전 값을 기반으로 복원
+        data = real[index - 1] * (1 + (pred[diff_index] / 100))
+        output2.append(data[0])
+
+    # 초기 값은 복원되지 않으므로 원래 데이터에서 그대로 가져옴
+    output2 = np.array([real[i] for i in range(input_window)] + output2)
+    showTemp(real, np.array(output), file_name="result2.png")
+
+def _make_trainer(_preprocessor, _input_windows, _output_windows):
+    _train_x, _train_y, _valid_x, _valid_y, _test_x, _test_y = _preprocessor.processed(_input_windows, _output_windows)
+    _train_loader, _valid_loader, _test_loader = data_loader(_train_x, _train_y, _valid_x, _valid_y, _test_x, _test_y)
+    return Trainer(_train_loader, _valid_loader, _test_loader)
+
+
+def _make_model(_output_window, _hidden_size, _drop_out, _learning_rate):
+    _lstm_model = LTSF_LSTM(
+        _output_window,
+        feature_size=Parser.feature_size,
+        hidden_size=_hidden_size,
+        dropout=_drop_out
+    ).to(device)
+
+    _optimizer = torch.optim.Adam(_lstm_model.parameters(), lr=_learning_rate)
+    _criterion = nn.MSELoss()
+    return _lstm_model, _optimizer, _criterion
 
 if __name__ == "__main__":
     import ssl

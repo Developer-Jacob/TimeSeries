@@ -1,7 +1,6 @@
 from tqdm import tqdm
 import torch
 import numpy as np
-import Parser
 from Const import device
 import Util
 from EarlyStopping import EarlyStopping
@@ -16,28 +15,32 @@ class Trainer:
     def eval(self, eval_model):
         checkpoint = torch.load(Util.path()+'/model.pth')
         eval_model.load_state_dict(checkpoint['state_dict'])
-
         eval_model.eval()
 
         # 예측 테스트
         with torch.no_grad():
             pred = []
-
             for data, target in self.test_loader:
                 data, target = data.to(device), target.to(device)
-
                 predicted = eval_model(data)
                 pred = predicted.data.detach().cpu().numpy()
 
         return pred
 
+    def compute_loss(self, model, data_loader, criterion):
+        losses = []
+        with torch.no_grad():
+            for data, target in data_loader:
+                data, target = data.to(device), target.to(device)
+                output = model(data).squeeze()
+                loss = criterion(output, target)
+                losses.append(loss.item())
+        return np.mean(losses)
+
     def train(self, epochs, train_model, criterion, optimizer):
-        early_stopping = EarlyStopping(patience=5, verbose=True)
+        early_stopping = EarlyStopping(patience=10, verbose=True)
         model = train_model
-        train_loss_list = []
-        valid_loss_list = []
-        test_loss_list = []
-        max_loss = 999999999
+        train_loss_list, valid_loss_list, test_loss_list = [], [], []
 
         progress = tqdm(range(0, epochs))
         for epoch in progress:
@@ -47,8 +50,7 @@ class Trainer:
                 data, target = data.to(device), target.to(device)
                 optimizer.zero_grad()
 
-                output = model(data)
-                output = output.squeeze()
+                output = model(data).squeeze()
 
                 loss = criterion(output, target)
                 loss.backward()
@@ -58,56 +60,18 @@ class Trainer:
 
             model.eval()
             with torch.no_grad():
-                for data, target in self.valid_loader:
-                    data, target = data.to(device), target.to(device)
-                    output = model(data)
-                    output = output.squeeze()
+                valid_loss = self.compute_loss(model, self.valid_loader, criterion)
+                test_loss = self.compute_loss(model, self.test_loader, criterion)
+                valid_loss_list.append(valid_loss)
+                test_loss_list.append(test_loss)
 
-                    model_loss = criterion(output, target)
-                    valid_loss = model_loss
-                    valid_loss_list.append(valid_loss.item())
-
-                for data, target in self.test_loader:
-                    data, target = data.to(device), target.to(device)
-
-                    output = model(data)
-                    output = output.squeeze()
-
-                    model_loss = criterion(output, target)
-                    test_loss = model_loss
-                    test_loss_list.append(test_loss.item())
-
-            early_stopping(valid_loss.item())
+            early_stopping(valid_loss, model)
+            progress.set_postfix({'Train Loss': train_loss_list[-1], 'Valid Loss': valid_loss, 'Test Loss': test_loss})
 
             if early_stopping.early_stop:
-                return 0, valid_loss.item(), 0
+                break
 
-            if valid_loss < max_loss and epoch > (epochs / 4) or Parser.param_is_debug:
-                # torch.save(train_model, self.path + '/model.pth')
-                torch.save(
-                    {
-                        'state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'epoch': epoch
-                        }, Util.path() + '/model.pth')
-                max_loss = valid_loss
-                print("valid_loss={:.6f}, test_los{:.6f}, Model Save".format(valid_loss, test_loss))
-                best_epoch = epoch
-                best_train_loss = np.mean(loss_list)
-                best_valid_loss = np.mean(valid_loss.item())
-                best_test_loss = np.mean(test_loss.item())
-            print("epoch = {}, train_loss : {:.6f}, valid_loss : {:.6f}, test_loss : {:.6f}".format(epoch,
-                                                                                                    np.mean(loss_list),
-                                                                                                    valid_loss,
-                                                                                                    test_loss))
+        torch.save({'state_dict': model.state_dict()}, Util.path() + '/model.pth')
 
-        if 'best_epoch' in locals():
-            f = open(Util.file_path(), 'a+')
-            f.write('\n\nbest_epoch: {}'.format(best_epoch))
-            f.write('\nbest_train_loss: {}'.format(best_train_loss))
-            f.write('\nbest_valid_loss: {}'.format(best_valid_loss))
-            f.write('\nbest_test_loss: {}'.format(best_test_loss))
-            f.close()
-
-        return best_train_loss, best_valid_loss, best_test_loss
+        return np.mean(train_loss_list), np.mean(valid_loss_list), np.mean(test_loss_list)
 

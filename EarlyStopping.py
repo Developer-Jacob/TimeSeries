@@ -1,5 +1,5 @@
-import numpy as np
 import torch
+import Util
 
 
 class EarlyStopping:
@@ -11,12 +11,12 @@ class EarlyStopping:
         self.best_score = None
         self.early_stop = False
 
-    def __call__(self, val_loss):
+    def __call__(self, val_loss, model):
         score = -val_loss
 
         if self.best_score is None:
             self.best_score = score
-            self._save_checkpoint(val_loss)
+            self._save_checkpoint(val_loss, model)
         elif score < self.best_score + self.min_delta:
             self.counter += 1
             if self.verbose:
@@ -25,10 +25,10 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.best_score = score
-            self._save_checkpoint(val_loss)
+            self._save_checkpoint(val_loss, model)
             self.counter = 0
 
-    def _save_checkpoint(self, val_loss):
+    def _save_checkpoint(self, val_loss, model):
         """검증 손실이 개선될 때 호출됩니다."""
         if self.verbose:
             print(f"Validation loss decreased: {val_loss:.4f}. Saving model...")

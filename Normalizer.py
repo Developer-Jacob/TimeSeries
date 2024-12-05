@@ -7,7 +7,7 @@ from sklearn.preprocessing import QuantileTransformer
 class Normalizer:
     def __init__(self):
         # self.scaler = MinMaxScaler(feature_range=(0, 1))
-        self.scaler = RobustScaler()
+        # self.scaler = RobustScaler()
         self.scaler = QuantileTransformer()
 
     def fit(self, train_data):

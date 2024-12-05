@@ -33,12 +33,21 @@ def sliding(data, target, input_window, output_window, stride=1):
     return X, Y.squeeze()
 
 class Preprocessor:
-    def __init__(self, data_set, input_window, output_window):
+    def __init__(self, data_set, need_diff=True, need_norm=True, verbose=False):
         self.data_set = data_set
-        self.input_window = input_window
-        self.output_window = output_window
+        self.verbose = verbose
         self.data_normalizer = Normalizer()
         self.target_normalizer = Normalizer()
+
+        if need_diff:
+            values = self.diffed()
+        else:
+            values = self.raw()
+        if need_norm:
+            self.processed_value = self.normalized(values)
+        else:
+            self.processed_value = values
+
 
     def raw(self):
         return (
@@ -87,22 +96,12 @@ class Preprocessor:
     def inverse_normalize_test_target(self, test_target):
         return self.target_normalizer.inverse_transform(test_target.reshape(-1, 1))
 
-    def processed(self, need_diff=True, need_normalize=True):
-        if need_diff:
-            values = self.diffed()
-        else:
-            values = self.raw()
+    def processed(self, input_window, output_window):
+        train_x, train_y, valid_x, valid_y, test_x, test_y = self.processed_value
 
-        if need_normalize:
-            train_x, train_y, valid_x, valid_y, test_x, test_y = self.normalized(values)
-        else:
-            train_x, train_y, valid_x, valid_y, test_x, test_y = values
-
-        x_train, y_train = sliding(train_x, train_y, self.input_window, self.output_window)
-        x_valid, y_valid = sliding(valid_x.astype(np.float32), valid_y.astype(np.float32), self.input_window,
-                                   self.output_window)
-        x_test, y_test = sliding(test_x.astype(np.float32), test_y.astype(np.float32), self.input_window,
-                                 self.output_window)
+        x_train, y_train = sliding(train_x, train_y, input_window, output_window)
+        x_valid, y_valid = sliding(valid_x.astype(np.float32), valid_y.astype(np.float32), input_window, output_window)
+        x_test, y_test = sliding(test_x.astype(np.float32), test_y.astype(np.float32), input_window, output_window)
 
         tensor_x_train = to_tensor(x_train)
         tensor_y_train = to_tensor(y_train)
@@ -111,12 +110,13 @@ class Preprocessor:
         tensor_x_test = to_tensor(x_test)
         tensor_y_test = to_tensor(y_test)
 
-        print("Train X:   ", tensor_x_train.shape, tensor_x_train[0])
-        print("Train Y:   ", tensor_y_train.shape, tensor_y_train[0])
-        print("Valid X:   ", tensor_x_valid.shape, tensor_x_valid[0])
-        print("Valid Y:   ", tensor_y_valid.shape, tensor_y_valid[0])
-        print("Test X:    ", tensor_x_test.shape, tensor_x_test[0])
-        print("Test Y:    ", tensor_y_test.shape, tensor_y_test[0])
+        if self.verbose:
+            print("Train X:   ", tensor_x_train.shape, tensor_x_train[0])
+            print("Train Y:   ", tensor_y_train.shape, tensor_y_train[0])
+            print("Valid X:   ", tensor_x_valid.shape, tensor_x_valid[0])
+            print("Valid Y:   ", tensor_y_valid.shape, tensor_y_valid[0])
+            print("Test X:    ", tensor_x_test.shape, tensor_x_test[0])
+            print("Test Y:    ", tensor_y_test.shape, tensor_y_test[0])
 
         return tensor_x_train, tensor_y_train, tensor_x_valid, tensor_y_valid, tensor_x_test, tensor_y_test
 

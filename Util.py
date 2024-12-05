@@ -59,7 +59,7 @@ def show_new(list, term=0, section=100):
         plt.plot(range(start, end), show_data, '.-')
 
 
-def showTemp(real, result, section=100):
+def showTemp(real, result, section=100, file_name="result.png"):
     fig = plt.figure(figsize=(20, 5))
 
     start = len(real) - section
@@ -68,7 +68,7 @@ def showTemp(real, result, section=100):
     end = len(real) - 1
     plt.plot(range(start, end), result[start:end], 'b.-')
     plt.plot(range(start, end), real[start:end], 'r.-')
-    plt.savefig(path() + '/result.png')
+    plt.savefig(path() + "/" + file_name)
 
 
 def show_on_off(real, pred, section=100):

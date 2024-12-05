@@ -31,12 +31,12 @@ def parse():
     return args.parse_args()
 
 
-def print_params():
-    print("Epochs:          ", param_epochs)
-    print("Input window:    ", param_input_window)
-    print("Output window:   ", param_output_window)
-    print("Hidden Size:     ", param_hidden_size)
-    print("Learning rate:   ", param_learning_rate)
-    print("Batch size:      ", param_batch_size)
+def print_params(epochs, learning_rate, input_window, output_window, hidden_size, batch_size):
+    print("Epochs:          ", epochs)
+    print("Input window:    ", input_window)
+    print("Output window:   ", output_window)
+    print("Hidden Size:     ", hidden_size)
+    print("Learning rate:   ", learning_rate)
+    print("Batch size:      ", batch_size)
 
 config = parse()
