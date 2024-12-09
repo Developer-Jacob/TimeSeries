@@ -2,18 +2,20 @@ import Parser
 from trainer import Trainer
 from Const import device
 from StockData import StockDataGenerator
-from Util import make_file
+from FileManager import FileManager
 from DataLoader import data_loader
 from Preprocessor import Preprocessor
 from Student import Student
 from model_lstm import LTSF_LSTM
 import torch
 import torch.nn as nn
-from Util import showTemp, printt
+from Util import draw_result, print_result
 import numpy as np
+
+
 def main():
     print("Device: ", device)
-
+    file_manager = FileManager()
     print("--------------------------- STEP 1 DATA GENERATOR --------------------")
     generator = StockDataGenerator()
     data_set = generator.allGenerateData()  # ndarray
@@ -32,17 +34,30 @@ def main():
         student.study()
         lstm_model, trainer = student.train_with_best_params()
         pred = trainer.eval(lstm_model)
+        file_manager.set_params(
+            student.best_input_window(),
+            1,
+            student.best_hidden_size(),
+            student.best_learning_rate(),
+            student.best_dropout_rate()
+        )
         input_window = student.best_input_window()
     elif mode == "train":
-        input_window = Parser.param_input_window
+        # input_window = Parser.param_input_window
+        input_window = 4
         output_window = Parser.param_output_window
-        hidden_size = Parser.param_hidden_size
-        learning_rate = Parser.param_learning_rate
-        model, optimizer, criterion = _make_model(output_window, hidden_size, 0.2, learning_rate)
+        # hidden_size = Parser.param_hidden_size
+        hidden_size = 32
+        # learning_rate = Parser.param_learning_rate
+        learning_rate = 0.0286
+        # dropout = 0.2
+        dropout = 0.16
+        model, optimizer, criterion = _make_model(output_window, hidden_size, dropout, learning_rate)
         trainer = _make_trainer(preprocessor, input_window, output_window)
-        loss_train, loss_valid, loss_test = trainer.train(Parser.param_epochs, model, criterion, optimizer)
-        pred = trainer.eval(model)
-
+        trained_model, valid_loss = trainer.train(Parser.param_epochs, model, criterion, optimizer)
+        file_manager.set_params(input_window, output_window, hidden_size, learning_rate, dropout)
+        file_manager.save_model(trained_model)
+        pred = trainer.eval(trained_model)
     if pred is None:
         print("!! No prediction")
         return
@@ -53,7 +68,7 @@ def main():
     real = data_set.test_target
     output = []
     for index, _ in enumerate(real):
-        diff_index = index - input_window
+        diff_index = index - input_window - 1
         if len(pred) <= diff_index:
             break
         if diff_index < 0:
@@ -63,24 +78,10 @@ def main():
             data = real[index - 1] * (1 + (pred[diff_index]/100))
             output.append(data[0])
     output = np.array(output)
-    print("Output shape: ", output.shape)
-    showTemp(real, np.array(output))
-    # printt(real, np.array(output), test_y, pred)
+    draw_result(real, np.array(output), file_manager.image_path)
+    print_result(file_manager.file_path, real, preprocessor.diffed()[5], pred, np.array(output))
+    print("Completed draw, print.")
 
-    output2 = []
-
-    # pred는 슬라이딩 윈도우의 결과이므로 offset을 고려
-    for index in range(input_window, len(real)):
-        diff_index = index - input_window
-        if diff_index >= len(pred):
-            break
-        # 이전 값을 기반으로 복원
-        data = real[index - 1] * (1 + (pred[diff_index] / 100))
-        output2.append(data[0])
-
-    # 초기 값은 복원되지 않으므로 원래 데이터에서 그대로 가져옴
-    output2 = np.array([real[i] for i in range(input_window)] + output2)
-    showTemp(real, np.array(output), file_name="result2.png")
 
 def _make_trainer(_preprocessor, _input_windows, _output_windows):
     _train_x, _train_y, _valid_x, _valid_y, _test_x, _test_y = _preprocessor.processed(_input_windows, _output_windows)
@@ -100,8 +101,8 @@ def _make_model(_output_window, _hidden_size, _drop_out, _learning_rate):
     _criterion = nn.MSELoss()
     return _lstm_model, _optimizer, _criterion
 
+
 if __name__ == "__main__":
     import ssl
     ssl._create_default_https_context = ssl._create_unverified_context
-    make_file()
     main()

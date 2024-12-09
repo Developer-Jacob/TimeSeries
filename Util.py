@@ -1,42 +1,37 @@
-from datetime import datetime
-import os
 import matplotlib.pyplot as plt
-import Parser
-import torch
 
-dir_path = ""
 
-def path():
-    date_str = datetime.today().strftime("%Y%m%d")
-    directory = 'EP{}_IW{}_OW{}_HS{}_LR{}'.format(
-        Parser.param_epochs,
-        Parser.param_input_window,
-        Parser.param_output_window,
-        Parser.param_hidden_size,
-        Parser.param_learning_rate
-    )
-    return './Model/{}/{}'.format(date_str, directory)
+def draw_result(real, result, path, section=100):
+    fig = plt.figure(figsize=(20, 5))
+    start = len(real) - section
+    if start < 0:
+        start = 0
+    end = len(real) - 1
+    plt.plot(range(start, end), result[start:end], 'b.-')
+    plt.plot(range(start, end), real[start:end], 'r.-')
+    plt.savefig(path)
 
-def file_path():
-    return path() + '/result.txt'
 
-def make_file():
-    os.makedirs(path(), exist_ok=True)
-    f = open(file_path(), 'w+')
-    f.write('Epochs {}'.format(Parser.param_epochs))
-    f.write('\nInputWindow {}'.format(Parser.param_input_window))
-    f.write('\nOutputWindow {}'.format(Parser.param_output_window))
-    f.write('\nHiddenSize {}'.format(Parser.param_hidden_size))
-    f.write('\nLearningRate {}'.format(Parser.param_learning_rate))
+def draw_variance(diffed, pred, path, section=100):
+    fig = plt.figure(figsize=(20, 5))
+    start = len(diffed) - section
+    if start < 0:
+        start = 0
+    end = len(diffed) - 1
+    plt.plot(range(start, end), pred[start:end], 'b.-')
+    plt.plot(range(start, end), diffed[start:end], 'r.-')
+    plt.savefig(path)
+
+def print_result(path, real, diffed, pred, convert_pred):
+    f = open(path, 'a+')
+    f.write("\n\n값 비교")
+    f.write('\n real: {}'.format(real[-10:]))
+    f.write('\n\n convert pred: {}'.format(convert_pred[-10:]))
+    f.write("\n\n변화량 비교")
+    f.write('\n diffed: {}'.format(diffed[-10:]))
+    f.write('\n\n predict: {}'.format(pred.flatten()[-10:]))
     f.close()
 
-def drow_loss(train, valid, test):
-    plt.figure(figsize=(20, 10))
-    plt.plot(range(0, len(train)), train, 'b')
-    plt.plot(range(0, len(valid)), valid, 'r')
-    plt.plot(range(0, len(test)), test, 'k')
-    plt.savefig(path() + '/loss.png')
-    plt.show()
 
 def showPLT(data, encoded):
     fig = plt.figure(figsize=(20, 5))
@@ -57,35 +52,6 @@ def show_new(list, term=0, section=100):
         start = index * term
         end = start + len(show_data)
         plt.plot(range(start, end), show_data, '.-')
-
-
-def showTemp(real, result, section=100, file_name="result.png"):
-    fig = plt.figure(figsize=(20, 5))
-
-    start = len(real) - section
-    if start < 0:
-        start = 0
-    end = len(real) - 1
-    plt.plot(range(start, end), result[start:end], 'b.-')
-    plt.plot(range(start, end), real[start:end], 'r.-')
-    plt.savefig(path() + "/" + file_name)
-
-
-def show_on_off(real, pred, section=100):
-    fig = plt.figure(figsize=(20, 5))
-    start = len(real) - section
-
-    if show:
-        plt.show()
-    else:
-        plt.savefig(path() + '/result.png')
-def printt(real, predit, result, compare):
-    f = open(file_path(), 'a+')
-    f.write('\n\n real: {}'.format(real[-10:-1]))
-    f.write('\n\n predict: {}'.format(predit[-9:]))
-    f.write('\n\n real compare: {}'.format(result[-10:-1]))
-    f.write('\n\n predict compare: {}'.format(compare[-9:]))
-    f.close()
 
 def show(real, result, input_window, output_window, show=False):
     fig = plt.figure(figsize=(20, 5))

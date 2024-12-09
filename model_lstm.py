@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from Const import device
+import numpy as np
 
 
 class LTSF_LSTM(torch.nn.Module):
@@ -57,3 +58,16 @@ class LTSF_LSTM(torch.nn.Module):
             out = self.fc(out)
 
         return out
+
+
+def calculate_probabilities(predictions, std_dev, bins):
+    probabilities = []
+    for pred in predictions:
+        bin_probs = []
+        for lower, upper in bins:
+            # Calculate cumulative probabilities for the bin
+            p_lower = 0.5 * (1 + torch.erf((lower - pred) / (std_dev * np.sqrt(2))))
+            p_upper = 0.5 * (1 + torch.erf((upper - pred) / (std_dev * np.sqrt(2))))
+            bin_probs.append(p_upper - p_lower)
+        probabilities.append(bin_probs)
+    return torch.tensor(probabilities)

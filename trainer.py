@@ -4,7 +4,7 @@ import numpy as np
 from Const import device
 import Util
 from EarlyStopping import EarlyStopping
-
+from FileManager import FileManager
 
 class Trainer:
     def __init__(self, train_loader, valid_loader, test_loader):
@@ -13,8 +13,6 @@ class Trainer:
         self.test_loader = test_loader
 
     def eval(self, eval_model):
-        checkpoint = torch.load(Util.path()+'/model.pth')
-        eval_model.load_state_dict(checkpoint['state_dict'])
         eval_model.eval()
 
         # 예측 테스트
@@ -71,7 +69,6 @@ class Trainer:
             if early_stopping.early_stop:
                 break
 
-        torch.save({'state_dict': model.state_dict()}, Util.path() + '/model.pth')
-
-        return np.mean(train_loss_list), np.mean(valid_loss_list), np.mean(test_loss_list)
+        return model, np.mean(valid_loss_list)
+        # return np.mean(train_loss_list), np.mean(valid_loss_list), np.mean(test_loss_list)
 

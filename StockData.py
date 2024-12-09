@@ -90,7 +90,7 @@ class StockDataGenerator:
             return df[key].to_numpy()
 
         self.data_class = [
-            "Close", "Open", "High", "Low",
+            "Close", "Open", "High", "Low", "Volume",
             "Upper", "Lower", "MA"
         ]
         result = list(map(value, self.data_class))
