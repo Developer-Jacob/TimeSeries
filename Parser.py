@@ -8,7 +8,6 @@ param_hidden_size = 128
 param_learning_rate = 0.001
 param_batch_size = 64
 param_is_train_mode = True
-feature_size = 0
 
 def parse():
     args = argparse.ArgumentParser()

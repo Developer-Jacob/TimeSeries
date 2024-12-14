@@ -1,106 +1,112 @@
 import Parser
-from trainer import Trainer
+from trainer import make_trainer
 from Const import device
 from StockData import StockDataGenerator
 from FileManager import FileManager
-from DataLoader import data_loader
 from Preprocessor import Preprocessor
 from Student import Student
-from model_lstm import LTSF_LSTM
-import torch
-import torch.nn as nn
-from Util import draw_result, print_result
+from Util import draw_result, print_result, draw_variance
+import Util
 import numpy as np
+from model_lstm import lstm_model
+from Differ import restore_data, restore_target
 
 
 def main():
-    print("Device: ", device)
     file_manager = FileManager()
+    print("Device: ", device)
+    need_norm = True
+    need_diff = True
     print("--------------------------- STEP 1 DATA GENERATOR --------------------")
     generator = StockDataGenerator()
     data_set = generator.allGenerateData()  # ndarray
     # data_set = generator.dummy()
 
-    mode = "study"
+    mode = "train"
 
     epochs = Parser.param_epochs
-    preprocessor = Preprocessor(data_set, need_diff=True, need_norm=True, verbose=False)
-    print("--------------------------- STEP 2 TRAINING MODE: ", mode, "--------------------")
+    preprocessor = Preprocessor(data_set, generator.feature_size, need_diff=need_diff, need_norm=need_norm, verbose=False)
+    print("--------------------------- STEP 2 TRAINING --------------------")
 
-    pred = None
     input_window = None
+    output_window = 1
+    hidden_size = None
+    learning_rate = None
+    dropout = None
+    num_layers = None
     if mode == "study":
-        student = Student(epochs, preprocessor, _make_trainer, _make_model)
-        student.study()
-        lstm_model, trainer = student.train_with_best_params()
-        pred = trainer.eval(lstm_model)
-        file_manager.set_params(
-            student.best_input_window(),
-            1,
-            student.best_hidden_size(),
-            student.best_learning_rate(),
-            student.best_dropout_rate()
-        )
-        input_window = student.best_input_window()
-    elif mode == "train":
+        student = Student(preprocessor)
+        best_params = student.study()
+
+        input_window = best_params[student.key_input_window]
+        hidden_size = best_params[student.key_hidden_size]
+        learning_rate = best_params[student.key_learning_rate]
+        dropout = best_params[student.key_dropout_rate]
+        num_layers = best_params[student.key_num_layers]
+    elif mode == "train" or mode == "eval":
         # input_window = Parser.param_input_window
-        input_window = 4
+        input_window = 88
         output_window = Parser.param_output_window
         # hidden_size = Parser.param_hidden_size
-        hidden_size = 32
+        hidden_size = 64
         # learning_rate = Parser.param_learning_rate
-        learning_rate = 0.0286
-        # dropout = 0.2
-        dropout = 0.16
-        model, optimizer, criterion = _make_model(output_window, hidden_size, dropout, learning_rate)
-        trainer = _make_trainer(preprocessor, input_window, output_window)
-        trained_model, valid_loss = trainer.train(Parser.param_epochs, model, criterion, optimizer)
-        file_manager.set_params(input_window, output_window, hidden_size, learning_rate, dropout)
-        file_manager.save_model(trained_model)
-        pred = trainer.eval(trained_model)
-    if pred is None:
-        print("!! No prediction")
+        learning_rate = 0.0001
+        dropout = 0.4
+
+        num_layers = 2
+
+    if input_window is None or output_window is None or hidden_size is None or learning_rate is None or dropout is None or num_layers is None:
+        print("!! Missing value", input_window, output_window, hidden_size, learning_rate, dropout)
         return
+
+    is_eval_mode = mode == "eval"
+    valid_loss = Util.train_all(file_manager, preprocessor, input_window, output_window, hidden_size, dropout, learning_rate, num_layers, is_eval_mode)
+    values = preprocessor.processed(input_window, output_window)
+    trainer = make_trainer(file_manager, values)
+
+    empty_model = lstm_model(
+        output_window=output_window,
+        feature_size=preprocessor.feature_size,
+        hidden_size=hidden_size,
+        dropout_rate=dropout,
+        num_layers=num_layers
+    ).to(device)
+    trained_model = file_manager.load_model(empty_model)
+    pred = trainer.eval(trained_model)
+
+    print("--------------------------- STEP 3 SHOW --------------------")
     pred = pred[:, :, 0]
 
-    pred = preprocessor.inverse_normalize_test_target(pred)
+    if need_norm:
+        inversed_pred = preprocessor.inverse_normalize_test_target(pred)
+    else:
+        inversed_pred = pred
 
     real = data_set.test_target
     output = []
-    for index, _ in enumerate(real):
-        diff_index = index - input_window - 1
-        if len(pred) <= diff_index:
-            break
-        if diff_index < 0:
-            output.append(0)
-            continue
-        else:
-            data = real[index - 1] * (1 + (pred[diff_index]/100))
-            output.append(data[0])
-    output = np.array(output)
+    diffed_test_target = None
+    if need_diff:
+        for index, _ in enumerate(real):
+            diff_index = index - input_window - 1
+            if len(inversed_pred) <= diff_index:
+                break
+            if diff_index < 0:
+                output.append(0)
+                continue
+            else:
+                data = real[index - 1] * (1 + (inversed_pred[diff_index]/100))
+                output.append(data[0])
+        output = np.array(output)
+        diffed_test_target = preprocessor.diffed()[5]
+        draw_variance(diffed_test_target, inversed_pred, file_manager.variance_image_path)
+    else:
+        output = inversed_pred
+        for i in range(0, input_window):
+            output = np.insert(output, 0, 0)
+
     draw_result(real, np.array(output), file_manager.image_path)
-    print_result(file_manager.file_path, real, preprocessor.diffed()[5], pred, np.array(output))
+    print_result(file_manager.file_path, real, diffed_test_target, inversed_pred, np.array(output))
     print("Completed draw, print.")
-
-
-def _make_trainer(_preprocessor, _input_windows, _output_windows):
-    _train_x, _train_y, _valid_x, _valid_y, _test_x, _test_y = _preprocessor.processed(_input_windows, _output_windows)
-    _train_loader, _valid_loader, _test_loader = data_loader(_train_x, _train_y, _valid_x, _valid_y, _test_x, _test_y)
-    return Trainer(_train_loader, _valid_loader, _test_loader)
-
-
-def _make_model(_output_window, _hidden_size, _drop_out, _learning_rate):
-    _lstm_model = LTSF_LSTM(
-        _output_window,
-        feature_size=Parser.feature_size,
-        hidden_size=_hidden_size,
-        dropout=_drop_out
-    ).to(device)
-
-    _optimizer = torch.optim.Adam(_lstm_model.parameters(), lr=_learning_rate)
-    _criterion = nn.MSELoss()
-    return _lstm_model, _optimizer, _criterion
-
 
 if __name__ == "__main__":
     import ssl

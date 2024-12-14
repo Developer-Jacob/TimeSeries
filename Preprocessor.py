@@ -32,22 +32,31 @@ def sliding(data, target, input_window, output_window, stride=1):
 
     return X, Y.squeeze()
 
+
 class Preprocessor:
-    def __init__(self, data_set, need_diff=True, need_norm=True, verbose=False):
+    def __init__(self, data_set, feature_size, need_diff=True, need_norm=True, verbose=False):
         self.data_set = data_set
         self.verbose = verbose
         self.data_normalizer = Normalizer()
         self.target_normalizer = Normalizer()
-
+        self.feature_size = feature_size
         if need_diff:
             values = self.diffed()
         else:
             values = self.raw()
+
+        # list_values = []
+        # for i in range(0, len(self.diffed())):
+        #     _raw = np.transpose(self.raw()[i][1:], (1, 0))
+        #     _diffed = np.transpose(self.diffed()[i], (1, 0))
+        #     _value = np.transpose(np.concatenate((_raw, _diffed)), (1, 0))
+        #     list_values.append(_value)
+        # values = tuple(list_values)
         if need_norm:
             self.processed_value = self.normalized(values)
         else:
             self.processed_value = values
-
+        print("123")
 
     def raw(self):
         return (
@@ -133,95 +142,14 @@ def shift_elements(arr, num, fill_value):
     return result
 
 
-# def prepare_data(x_encoded, y_close, time_steps, log_return=True, train=True):
-#     ct = 0
-#     data = []
-#     for i in range(len(x_encoded) - time_steps):
-#         ct += 1
-#         if train:
-#             x_train = x_encoded[i:i+time_steps]
-#         else:
-#             x_train = x_encoded[:i+time_steps]
-#
-#         data.append(x_train)
-#
-#     if log_return == False:
-#         y_close = np.diff(y_close) / y_close[..., :-1]
-#         y_close = np.float32(y_close)
-#         # y_close = pct_change(y_close)
-#     else:
-#         # y_close = (np.log(y_close) - np.log(y_close.shift(1)))[1:] # the log return, i.e. ln(y_t/y_(t-1))
-#         shifted = shift_elements(y_close, 1, 0)
-#         y_close = (np.log(y_close) - np.log(shifted))[1:]  # the log return, i.e. ln(y_t/y_(t-1))
-#     if train:
-#         y = y_close[time_steps-1:]
-#     else:
-#         y = y_close
-#
-#     result = zip(data, y)
-#     return zip(*result)
-#
-#
-# def prepare(data_set, need_encode):
-#     input_window = Parser.param_input_window
-#     output_window = Parser.param_output_window
-#     if need_encode:
-#         n_epoch = Parser.param_encoder_epochs
-#
-#         encoder = StackedAutoEncoder(n_epoch=n_epoch)
-#
-#         # Train Autoencoder
-#         encoder.forward(data_set.train_data)
-#
-#         # Encode data
-#         encoded_train_data = encoder.encoded_data(data_set.train_data)  # Numpy
-#         encoded_valid_data = encoder.encoded_data(data_set.valid_data)  # Numpy
-#         encoded_test_data = encoder.encoded_data(data_set.test_data)  # Numpy
-#
-#         extra_encoded_valid_data = np.concatenate((encoded_train_data[-input_window:], encoded_valid_data))
-#         extra_encoded_test_data = np.concatenate((encoded_valid_data[-input_window:], encoded_test_data))
-#
-#         x_train, y_train = prepare_data(encoded_train_data, data_set.train_target, input_window, log_return=False, train=True)
-#         x_valid, y_valid = prepare_data(extra_encoded_valid_data, data_set.valid_target, input_window, log_return=False, train=True)
-#         x_test, y_test = prepare_data(extra_encoded_test_data, data_set.test_target, input_window, log_return=False, train=True)
-#
-#         return to_tensor(x_train), to_tensor(y_train), x_valid, y_valid, x_test, y_test
-#     else:
-#         diff = True
-#
-#         input_train_x = data_set.train_data
-#         input_train_y = data_set.train_target
-#         input_valid_x = data_set.valid_data
-#         input_valid_y = data_set.valid_target
-#         input_test_x = data_set.test_data
-#         input_test_y = data_set.test_target
-#
-#         if diff:
-#             input_train_x = diff_data(data_set.train_data)
-#             input_train_y = diff_target(data_set.train_target)
-#             input_valid_x = diff_data(data_set.valid_data)
-#             input_valid_y = diff_target(data_set.valid_target)
-#             input_test_x = diff_data(data_set.test_data)
-#             input_test_y = diff_target(data_set.test_target)
-#
-#         x_train, y_train = sliding(input_train_x, input_train_y, input_window, output_window)
-#         x_valid, y_valid = sliding(input_valid_x.astype(np.float32), input_valid_y.astype(np.float32), input_window, output_window)
-#         x_test, y_test = sliding(input_test_x.astype(np.float32), input_test_y.astype(np.float32), input_window, output_window)
-#
-#         tensor_x_train = to_tensor(x_train)
-#         tensor_y_train = to_tensor(y_train)
-#         tensor_x_valid = to_tensor(x_valid)
-#         tensor_y_valid = to_tensor(y_valid)
-#         tensor_x_test = to_tensor(x_test)
-#         tensor_y_test = to_tensor(y_test)
-#
-#         print("Train X:   ", tensor_x_train.shape, tensor_x_train[0])
-#         print("Train Y:   ", tensor_y_train.shape, tensor_y_train[0])
-#         print("Valid X:   ", tensor_x_valid.shape, tensor_x_valid[0])
-#         print("Valid Y:   ", tensor_y_valid.shape, tensor_y_valid[0])
-#         print("Test X:    ", tensor_x_test.shape, tensor_x_test[0])
-#         print("Test Y:    ", tensor_y_test.shape, tensor_y_test[0])
-#
-#         return tensor_x_train, tensor_y_train, tensor_x_valid, tensor_y_valid, tensor_x_test, tensor_y_test
-#
-#
+if __name__ == "__main__":
+    from StockData import StockDataGenerator
+    generator = StockDataGenerator()
+    data_set = generator.allGenerateData()
+    preprocessor = Preprocessor(data_set, generator.feature_size, True, False)
+    data = preprocessor.processed_value[0]
+    data = data.reshape(4, -1)[0]
+    data = data.reshape(-1, 1).squeeze()
+    import Util
+
+    Util.draw_test(data, None)

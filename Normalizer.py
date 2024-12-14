@@ -1,14 +1,11 @@
-from sklearn.preprocessing import MinMaxScaler
 import numpy as np
-from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import QuantileTransformer
+from sklearn.preprocessing import RobustScaler, StandardScaler, MinMaxScaler, QuantileTransformer
 
 
 class Normalizer:
     def __init__(self):
-        # self.scaler = MinMaxScaler(feature_range=(0, 1))
-        # self.scaler = RobustScaler()
-        self.scaler = QuantileTransformer()
+        self.scaler = RobustScaler()
+        # self.scaler = QuantileTransformer()
 
     def fit(self, train_data):
         """훈련 데이터로 정규화 기준 학습"""

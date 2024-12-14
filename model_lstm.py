@@ -6,12 +6,12 @@ import numpy as np
 
 
 class LTSF_LSTM(torch.nn.Module):
-    def __init__(self, output_window, feature_size, hidden_size, dropout=0.2):
+    def __init__(self, output_window, feature_size, hidden_size, dropout=0.2, num_layers=1):
         super(LTSF_LSTM, self).__init__()
         self.output_window = output_window
         self.hidden_size = hidden_size
         self.feature_size = feature_size
-        self.num_layers = 2
+        self.num_layers = num_layers
         self.bidirectional = False
 
         self.lstm = torch.nn.LSTM(
@@ -71,3 +71,13 @@ def calculate_probabilities(predictions, std_dev, bins):
             bin_probs.append(p_upper - p_lower)
         probabilities.append(bin_probs)
     return torch.tensor(probabilities)
+
+
+def lstm_model(output_window, feature_size, hidden_size, dropout_rate, num_layers):
+    return LTSF_LSTM(
+        output_window,
+        feature_size=feature_size,
+        hidden_size=hidden_size,
+        dropout=dropout_rate,
+        num_layers=num_layers
+    ).to(device)

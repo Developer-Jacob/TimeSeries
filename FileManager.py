@@ -5,12 +5,23 @@ import torch
 
 class FileManager:
     def __init__(self):
-        self.model_path = None
+        self.model_path = "model_checkpoint.pth"
         self.file_path = None
         self.image_path = None
+        self.variance_image_path = None
+        self.study_directory = None
+
+    def data_image_path(self):
+        date_str = datetime.today().strftime("%Y%m%d")
+        return './Model/{}'.format(date_str) + "data_image.png"
+
+    def save_study(self):
+        f = open(self.file_path, 'w+')
 
     def save_model(self, model):
-        torch.save({'state_dict': model.state_dict()}, self.model_path)
+        torch.save({
+            'state_dict': model.state_dict()
+        }, self.model_path)
 
     def load_model(self, model):
         checkpoint = torch.load(self.model_path)
@@ -34,11 +45,13 @@ class FileManager:
         self.file_path = self.directory_path + "/" + 'result.txt'
         self.model_path = self.directory_path + "/" + 'model.pth'
         self.image_path = self.directory_path + "/" + 'result.png'
+        self.variance_image_path = self.directory_path + "/" + 'variance.png'
+        date_str = datetime.today().strftime("%Y%m%d")
+        self.study_directory = './Model/{}/{}'.format(date_str, "study")
         self._save_text()
 
     def _make_directory(self, input_window, output_window, hidden_size, learning_rate, drop_out):
         date_str = datetime.today().strftime("%Y%m%d")
-        os.makedirs(date_str, exist_ok=True)
         directory = 'IW{}_OW{}_HS{}_LR{:.4f}_DO{:.4f}'.format(
             input_window,
             output_window,
