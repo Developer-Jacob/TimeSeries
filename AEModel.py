@@ -25,7 +25,7 @@ class StackedAutoEncoder:
         self.auto1.train()
         self.auto1.fit(input_value, n_epoch=self.n_epoch)
 
-        inputs = torch.autograd.Variable(torch.from_numpy(input_value.astype(np.float32)))
+        inputs = torch.autograd.Variable(torch.from_numpy(input_value.astype(np.float16)))
 
         if self.auto2 is None:
             self.auto2 = CnnAutoEncoder(self.num_hidden_1, self.num_hidden_2)

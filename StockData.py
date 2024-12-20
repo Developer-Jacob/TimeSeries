@@ -85,11 +85,14 @@ class StockDataGenerator:
         # volume_log_ema120 = df['VolumeLogEMA120'].to_numpy()
 
         def value(key):
-            return df[key].rolling(window=5).mean().to_numpy()
+            if key in ["Upper", "Lower", "MA"]:
+                return df[key].to_numpy()
+            else:
+                return df[key].rolling(window=5).mean().to_numpy()
 
         self.data_class = [
             "Close", "High", "Low",
-            # "Volume",
+            "Volume",
             "Upper", "Lower", "MA"
         ]
         result = list(map(value, self.data_class))
@@ -204,8 +207,12 @@ class StockDataGenerator:
         self.target_class = target_class
         self.data_frame = yf.download('^GSPC', start='1970-01-01', end='2023-12-31').copy()
         self.data_frame.columns = self.data_frame.columns = ['Adj Close', 'Close', 'High', 'Low', 'Open', 'Volume']
-        # self.data_frame = fdr.DataReader("S&P500", "1985")
-        # self.data_frame = ReadExcel.read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
+
+        # self.data_frame2 = fdr.DataReader("S&P500", "1985")
+        # read_data_frame = ReadExcel.read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
+        # self.data_frame = read_data_frame.iloc[int(len(read_data_frame) * 0.8):]
+        # print(df_tail)
+
         # print(self.data_frame)
         # nasdaq = fdr.StockListing('NASDAQ')
         # nyse = fdr.StockListing('NYSE')

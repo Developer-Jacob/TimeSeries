@@ -9,6 +9,8 @@ class EarlyStopping:
         self.best_score = None
         self.early_stop = False
         self.file_manager = file_manager
+        self.best_model = None
+        self.saved = False
 
     def __call__(self, val_loss, model):
         score = -val_loss
@@ -29,7 +31,11 @@ class EarlyStopping:
 
     def _save_checkpoint(self, val_loss, model):
         """검증 손실이 개선될 때 호출됩니다."""
-        if self.file_manager is not None:
-            self.file_manager.save_model(model)
+        self.best_model = model
         if self.verbose:
             print(f"Validation loss decreased: {val_loss:.4f}. Saving model...")
+
+    def save_best_model(self):
+        if self.file_manager is not None and self.saved is False:
+            self.file_manager.save_model(self.best_model)
+            self.saved = True

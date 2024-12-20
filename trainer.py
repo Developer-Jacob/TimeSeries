@@ -2,12 +2,10 @@ from tqdm import tqdm
 import torch
 import numpy as np
 from Const import device
-from EarlyStopping import EarlyStopping
 from DataLoader import data_loader
 
 class Trainer:
-    def __init__(self, file_manager, train_loader, valid_loader, test_loader):
-        self.file_manager = file_manager
+    def __init__(self, train_loader, valid_loader, test_loader):
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.test_loader = test_loader
@@ -22,10 +20,10 @@ class Trainer:
                 data, target = data.to(device), target.to(device)
                 predicted = eval_model(data)
 
-                print("------")
-                print("data ", data[0].squeeze())
-                print("target", target[0])
-                print("output", predicted[0])
+                # print("------")
+                # print("data ", data[0].squeeze())
+                # print("target", target[0])
+                # print("output", predicted[0])
 
                 pred = predicted.data.detach().cpu().numpy()
 
@@ -38,7 +36,7 @@ class Trainer:
             for data, target in data_loader:
                 data, target = data.to(device), target.to(device)
                 output = model(data).squeeze()
-                loss = criterion(output, target)
+                loss = criterion(output, target.squeeze())
                 losses.append(loss.item())
         return np.mean(losses)
 
@@ -51,13 +49,13 @@ class Trainer:
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data).squeeze()
-            #
+
             # print("------")
             # print("data ", data[0].squeeze())
             # print("target", target[0])
             # print("output", output[0])
 
-            loss = criterion(output, target)
+            loss = criterion(output, target.squeeze())
 
             loss.backward()
             optimizer.step()
@@ -71,10 +69,9 @@ class Trainer:
         with torch.no_grad():
             return self.compute_loss(model, loader, criterion)
 
-    def train(self, epochs, train_model, train_criterion, train_optimizer):
+    def train(self, early_stopping, epochs, train_model, train_criterion, train_optimizer):
         criterion = train_criterion
         optimizer = train_optimizer
-        early_stopping = EarlyStopping(self.file_manager, patience=10, verbose=True)
         model = train_model.to(device)
         train_loss_list, valid_loss_list, test_loss_list = [], [], []
 
@@ -83,7 +80,6 @@ class Trainer:
             train_loss = self.train_epoch(model, criterion, optimizer, self.train_loader)
             valid_loss = self.evaluate(model, self.valid_loader, criterion)
             test_loss = self.evaluate(model, self.test_loader, criterion)
-            print(f"Epoch {epoch}, Loss: {train_loss}")
             train_loss_list.append(train_loss)
             valid_loss_list.append(valid_loss)
             test_loss_list.append(test_loss)
@@ -96,12 +92,14 @@ class Trainer:
             })
 
             if early_stopping.early_stop:
+                early_stopping.save_best_model()
                 break
 
+        early_stopping.save_best_model()
         return np.mean(valid_loss_list)
 
 
-def make_trainer(file_manager, values):
+def make_trainer(values):
     _train_x, _train_y, _valid_x, _valid_y, _test_x, _test_y = values
     _train_loader, _valid_loader, _test_loader = data_loader(_train_x, _train_y, _valid_x, _valid_y, _test_x, _test_y)
-    return Trainer(file_manager, _train_loader, _valid_loader, _test_loader)
+    return Trainer(_train_loader, _valid_loader, _test_loader)

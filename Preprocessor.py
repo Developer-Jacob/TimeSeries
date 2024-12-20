@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from Differ import diff_data, diff_target
 from Normalizer import Normalizer
-
+import gc
 
 def to_tensor(array):
     return torch.tensor(array).to(dtype=torch.float32)
@@ -14,11 +14,13 @@ def sliding(data, target, input_window, output_window, stride=1):
     L = data.shape[0]
     feature_size = data.shape[1]
     # stride씩 움직이는데 몇번움직임 가능한지
-    num_samples = (L - input_window - output_window + 1) // stride
+    # num_samples = (L - input_window - output_window + 1) // stride
+    #
+    # # input, output
+    # X = np.zeros([num_samples, input_window, feature_size])
+    # Y = np.zeros([num_samples, output_window])
 
-    # input, output
-    X = np.zeros([num_samples, input_window, feature_size])
-    Y = np.zeros([num_samples, output_window])
+    num_samples = max(0, (L - input_window - output_window + 1) // stride)
 
     for i in np.arange(num_samples):
         start_x = stride * i
@@ -27,10 +29,11 @@ def sliding(data, target, input_window, output_window, stride=1):
         start_y = stride * i + input_window
         end_y = start_y + output_window
 
-        X[i] = data[start_x:end_x]
-        Y[i] = target[start_y:end_y]
+        # X[i] = data[start_x:end_x]
+        # Y[i] = target[start_y:end_y]
+        yield data[start_x:end_x], target[start_y:end_y]
 
-    return X, Y.squeeze()
+    # return X, Y.squeeze()
 
 
 class Preprocessor:
@@ -45,13 +48,6 @@ class Preprocessor:
         else:
             values = self.raw()
 
-        # list_values = []
-        # for i in range(0, len(self.diffed())):
-        #     _raw = np.transpose(self.raw()[i][1:], (1, 0))
-        #     _diffed = np.transpose(self.diffed()[i], (1, 0))
-        #     _value = np.transpose(np.concatenate((_raw, _diffed)), (1, 0))
-        #     list_values.append(_value)
-        # values = tuple(list_values)
         if need_norm:
             self.processed_value = self.normalized(values)
         else:
@@ -108,26 +104,52 @@ class Preprocessor:
     def processed(self, input_window, output_window):
         train_x, train_y, valid_x, valid_y, test_x, test_y = self.processed_value
 
-        x_train, y_train = sliding(train_x, train_y, input_window, output_window)
-        x_valid, y_valid = sliding(valid_x.astype(np.float32), valid_y.astype(np.float32), input_window, output_window)
-        x_test, y_test = sliding(test_x.astype(np.float32), test_y.astype(np.float32), input_window, output_window)
+        def process_sliding(data, target):
+            for x, y in sliding(data, target, input_window, output_window):
+                yield to_tensor(x), to_tensor(y)
 
-        tensor_x_train = to_tensor(x_train)
-        tensor_y_train = to_tensor(y_train)
-        tensor_x_valid = to_tensor(x_valid)
-        tensor_y_valid = to_tensor(y_valid)
-        tensor_x_test = to_tensor(x_test)
-        tensor_y_test = to_tensor(y_test)
+        train_batches = list(process_sliding(train_x, train_y))
+        valid_batches = list(process_sliding(valid_x, valid_y))
+        test_batches = list(process_sliding(test_x, test_y))
 
-        if self.verbose:
-            print("Train X:   ", tensor_x_train.shape, tensor_x_train[0])
-            print("Train Y:   ", tensor_y_train.shape, tensor_y_train[0])
-            print("Valid X:   ", tensor_x_valid.shape, tensor_x_valid[0])
-            print("Valid Y:   ", tensor_y_valid.shape, tensor_y_valid[0])
-            print("Test X:    ", tensor_x_test.shape, tensor_x_test[0])
-            print("Test Y:    ", tensor_y_test.shape, tensor_y_test[0])
+        # 배치를 텐서로 변환
+        tensor_x_train, tensor_y_train = zip(*train_batches)
+        tensor_x_valid, tensor_y_valid = zip(*valid_batches)
+        tensor_x_test, tensor_y_test = zip(*test_batches)
 
-        return tensor_x_train, tensor_y_train, tensor_x_valid, tensor_y_valid, tensor_x_test, tensor_y_test
+        return (
+            torch.stack(tensor_x_train), torch.stack(tensor_y_train),
+            torch.stack(tensor_x_valid), torch.stack(tensor_y_valid),
+            torch.stack(tensor_x_test), torch.stack(tensor_y_test)
+        )
+
+        # x_train, y_train = sliding(train_x, train_y, input_window, output_window)
+        # tensor_x_train = to_tensor(x_train)
+        # tensor_y_train = to_tensor(y_train)
+        # del x_train, y_train
+        # gc.collect()
+        #
+        # x_valid, y_valid = sliding(valid_x.astype(np.float32), valid_y.astype(np.float32), input_window, output_window)
+        # tensor_x_valid = to_tensor(x_valid)
+        # tensor_y_valid = to_tensor(y_valid)
+        # del x_valid, y_valid
+        # gc.collect()
+        #
+        # x_test, y_test = sliding(test_x.astype(np.float32), test_y.astype(np.float32), input_window, output_window)
+        # tensor_x_test = to_tensor(x_test)
+        # tensor_y_test = to_tensor(y_test)
+        # del x_test, y_test
+        # gc.collect()
+        #
+        # if self.verbose:
+        #     print("Train X:   ", tensor_x_train.shape, tensor_x_train[0])
+        #     print("Train Y:   ", tensor_y_train.shape, tensor_y_train[0])
+        #     print("Valid X:   ", tensor_x_valid.shape, tensor_x_valid[0])
+        #     print("Valid Y:   ", tensor_y_valid.shape, tensor_y_valid[0])
+        #     print("Test X:    ", tensor_x_test.shape, tensor_x_test[0])
+        #     print("Test Y:    ", tensor_y_test.shape, tensor_y_test[0])
+        #
+        # return tensor_x_train, tensor_y_train, tensor_x_valid, tensor_y_valid, tensor_x_test, tensor_y_test
 
 def shift_elements(arr, num, fill_value):
     result = np.empty_like(arr)

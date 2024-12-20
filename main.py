@@ -9,7 +9,8 @@ from Util import draw_result, print_result, draw_variance
 import Util
 import numpy as np
 from model_lstm import lstm_model
-from Differ import restore_data, restore_target
+from Transformer import TimeSeriesTransformer
+from EarlyStopping import EarlyStopping
 
 
 def main():
@@ -22,7 +23,7 @@ def main():
     data_set = generator.allGenerateData()  # ndarray
     # data_set = generator.dummy()
 
-    mode = "train"
+    mode = "study"
 
     epochs = Parser.param_epochs
     preprocessor = Preprocessor(data_set, generator.feature_size, need_diff=need_diff, need_norm=need_norm, verbose=False)
@@ -32,7 +33,7 @@ def main():
     output_window = 1
     hidden_size = None
     learning_rate = None
-    dropout = None
+    dropout_rate = None
     num_layers = None
     if mode == "study":
         student = Student(preprocessor)
@@ -41,42 +42,48 @@ def main():
         input_window = best_params[student.key_input_window]
         hidden_size = best_params[student.key_hidden_size]
         learning_rate = best_params[student.key_learning_rate]
-        dropout = best_params[student.key_dropout_rate]
+        dropout_rate = best_params[student.key_dropout_rate]
         num_layers = best_params[student.key_num_layers]
     elif mode == "train" or mode == "eval":
+
         # input_window = Parser.param_input_window
-        input_window = 88
+        input_window = 100
         output_window = Parser.param_output_window
         # hidden_size = Parser.param_hidden_size
-        hidden_size = 64
+        hidden_size = 128
         # learning_rate = Parser.param_learning_rate
-        learning_rate = 0.0001
-        dropout = 0.4
+        learning_rate = 0.001
+        dropout_rate = 0.31
 
-        num_layers = 2
+        num_layers = 3
 
-    if input_window is None or output_window is None or hidden_size is None or learning_rate is None or dropout is None or num_layers is None:
-        print("!! Missing value", input_window, output_window, hidden_size, learning_rate, dropout)
+    if input_window is None or output_window is None or hidden_size is None or learning_rate is None or dropout_rate is None or num_layers is None:
+        print("!! Missing value", input_window, output_window, hidden_size, learning_rate, dropout_rate)
         return
-
-    is_eval_mode = mode == "eval"
-    valid_loss = Util.train_all(file_manager, preprocessor, input_window, output_window, hidden_size, dropout, learning_rate, num_layers, is_eval_mode)
+    Parser.print_params(Parser.param_epochs, learning_rate, input_window, output_window, hidden_size, Parser.param_batch_size)
     values = preprocessor.processed(input_window, output_window)
-    trainer = make_trainer(file_manager, values)
+    trainer = make_trainer(values)
 
-    empty_model = lstm_model(
-        output_window=output_window,
-        feature_size=preprocessor.feature_size,
-        hidden_size=hidden_size,
-        dropout_rate=dropout,
-        num_layers=num_layers
+    if mode == "train" or mode == "study":
+        file_manager.set_params(input_window, output_window, hidden_size, learning_rate, dropout_rate)
+        early_stopping = EarlyStopping(file_manager, patience=20, verbose=True)
+        valid_loss = Util.train_all(trainer, early_stopping, input_window, output_window, preprocessor.feature_size, hidden_size, dropout_rate, learning_rate, num_layers)
+
+    empty_model = TimeSeriesTransformer(
+        input_dim=preprocessor.feature_size,
+        d_model=hidden_size,
+        n_heads=4,
+        num_layers=num_layers,
+        seq_len=input_window,
+        output_dim=output_window,
+        dropout_rate=dropout_rate
     ).to(device)
     trained_model = file_manager.load_model(empty_model)
     pred = trainer.eval(trained_model)
 
     print("--------------------------- STEP 3 SHOW --------------------")
-    pred = pred[:, :, 0]
-
+    # pred = pred[:, :, 0]
+    pred = pred.squeeze()
     if need_norm:
         inversed_pred = preprocessor.inverse_normalize_test_target(pred)
     else:

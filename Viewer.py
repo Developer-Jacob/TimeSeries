@@ -1,25 +1,56 @@
 import matplotlib.pyplot as plt
-from datetime import datetime
-import Parser
+import numpy as np
+import torch
+import torch.nn as nn
 
-def showTemp(real, result, section=100):
-    fig = plt.figure(figsize=(20, 5))
 
-    start = len(real) - section
-    if start < 0:
-        start = 0
-    end = len(real) - 1
-    plt.plot(range(start, end), result[start:end], 'b.-')
-    plt.plot(range(start, end), real[start:end], 'r.-')
-    plt.savefig(path() + '/result.png')
+class CustomLinearLoss(nn.Module):
+    def __init__(self, penalty_factor=5, sensitivity_factor=0.5):
+        super(CustomLinearLoss, self).__init__()
+        self.penalty_factor = penalty_factor
+        self.sensitivity_factor = sensitivity_factor
 
-def path():
-    date_str = datetime.today().strftime("%Y%m%d")
-    directory = 'EP{}_IW{}_OW{}_HS{}_LR{}'.format(
-        Parser.param_epochs,
-        Parser.param_input_window,
-        Parser.param_output_window,
-        Parser.param_hidden_size,
-        Parser.param_learning_rate
-    )
-    return './Model/{}/{}'.format(date_str, directory)
+    def forward(self, y_pred, y_true):
+        error = y_pred - y_true
+        # Base loss with tanh
+        base_loss = torch.tanh(error ** 2)
+
+        # Cap penalty at penalty_factor when signs are opposite
+        penalty_tensor = torch.full_like(error, self.penalty_factor)  # Ensure same dtype and device
+        sign_penalty = torch.where(error < 0, torch.minimum(penalty_tensor, penalty_tensor * torch.abs(error)),
+                                   torch.zeros_like(error))
+
+        # Adjust sensitivity: Gradual increase for small errors, steeper for larger errors
+        sensitivity = 1 - torch.exp(-self.sensitivity_factor * torch.abs(error))
+
+        # Combine all components
+        loss = base_loss * sensitivity + sign_penalty
+        return torch.mean(loss)# Return element-wise loss for visualization
+
+
+# Visualization Function
+def visualize_custom_loss(penalty_factor=5, sensitivity_factor=0.5):
+    loss_fn = CustomLinearLoss(penalty_factor, sensitivity_factor)
+    y_pred = torch.linspace(-20, 30, 500)  # Adjust range to -20 to 30 for visualization
+    y_true = torch.zeros_like(y_pred)  # Simulate true values as 0 for visualization
+
+    # Calculate loss for each value individually
+    loss_values = []
+    for pred in y_pred:
+        loss = loss_fn(pred.unsqueeze(0), torch.tensor([0.0]))  # Compute loss for each prediction
+        loss_values.append(loss.item())
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(y_pred.numpy(), loss_values, label="Custom Loss with Gradual and Steep Sensitivity")
+    plt.title("Custom Loss Function Visualization with Sensitivity and Penalty")
+    plt.xlabel("Prediction (y_pred)")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+# Main Execution
+if __name__ == "__main__":
+    print("Visualizing the custom loss function...")
+    visualize_custom_loss(penalty_factor=5, sensitivity_factor=0.5)

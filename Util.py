@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime
+from CustomLoss import CustomLoss
 import Const
 import Parser
-
-
+from Transformer import TimeSeriesTransformer
+from Viewer import CustomLinearLoss
 def draw_test(data1, data2):
     fig = plt.figure(figsize=(20, 5))
 
@@ -59,42 +59,35 @@ def draw_variance(diffed, pred, path, section=100):
 
 def print_result(path, real, diffed, pred, convert_pred):
     f = open(path, 'a+')
-    f.write("\n\n값 비교")
-    f.write('\n real: {}'.format(real[-10:]))
-    f.write('\n\n convert pred: {}'.format(convert_pred[-10:]))
+    f.write("\n\nValues")
+    f.write('\nreal: {}'.format(real[-10:]))
+    f.write('\n\nconvert pred: {}'.format(convert_pred[-10:]))
 
     if diffed is not None:
-        f.write("\n\n변화량 비교")
-        f.write('\n diffed: {}'.format(diffed[-10:]))
-        f.write('\n\n predict: {}'.format(pred.flatten()[-10:]))
+        f.write("\n\nVariance")
+        f.write('\ndiffed: {}'.format(diffed[-10:]))
+        f.write('\n\npredict: {}'.format(pred.flatten()[-10:]))
     f.close()
 
-
-from trainer import make_trainer
-from model_lstm import LTSF_LSTM, lstm_model
 import torch
 import torch.nn as nn
 
 
-def train_all(file_manager, preprocessor, input_window, output_window, hidden_size, dropout_rate, learning_rate, num_layers, eval_mode=False):
-    values = preprocessor.processed(input_window, output_window)
-    trainer = make_trainer(file_manager, values)
-
-    if file_manager is not None:
-        file_manager.set_params(input_window, output_window, hidden_size, learning_rate, dropout_rate)
-
-    model = lstm_model(
-        output_window=output_window,
-        feature_size=preprocessor.feature_size,
-        hidden_size=hidden_size,
-        dropout_rate=dropout_rate,
-        num_layers=num_layers
+def train_all(trainer, early_stopping, input_window, output_window, feature_size, hidden_size, dropout_rate, learning_rate, num_layers):
+    model = TimeSeriesTransformer(
+        input_dim=feature_size,
+        d_model=hidden_size,
+        n_heads=4,
+        num_layers=num_layers,
+        seq_len=input_window,
+        output_dim=output_window,
+        dropout_rate=dropout_rate
     ).to(Const.device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.MSELoss()
+    # criterion = nn.MSELoss()
+    criterion = CustomLinearLoss()
     # criterion = nn.SmoothL1Loss()
-    valid_loss = None
-    if eval_mode is False:
-        valid_loss = trainer.train(Parser.param_epochs, model, criterion, optimizer)
+
+    valid_loss = trainer.train(early_stopping, Parser.param_epochs, model, criterion, optimizer)
     return valid_loss
