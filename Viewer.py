@@ -3,6 +3,19 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+class OptimizedCustomLoss(torch.nn.Module):
+    def __init__(self, penalty_factor=5, sensitivity_factor=0.5):
+        super(OptimizedCustomLoss, self).__init__()
+        self.penalty_factor = penalty_factor
+        self.sensitivity_factor = sensitivity_factor
+
+    def forward(self, output, target):
+        error = output - target
+        base_loss = error ** 2  # Simplified for speed
+        sensitivity = torch.abs(error) * self.sensitivity_factor / (1 + torch.abs(error) * self.sensitivity_factor)
+        penalty_tensor = (error < 0).float() * self.penalty_factor * torch.clamp(torch.abs(error), max=1.0)
+        loss = base_loss * sensitivity + penalty_tensor
+        return torch.mean(loss)
 
 class CustomLinearLoss(nn.Module):
     def __init__(self, penalty_factor=5, sensitivity_factor=0.5):

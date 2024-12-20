@@ -41,8 +41,6 @@ class Trainer:
         return np.mean(losses)
 
     def train_epoch(self, model, criterion, optimizer, loader):
-
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
         model.train()
         loss_list = []
         for data, target in loader:
@@ -61,7 +59,6 @@ class Trainer:
             optimizer.step()
 
             loss_list.append(loss.item())
-        scheduler.step()
         return np.mean(loss_list)
 
     def evaluate(self, model, loader, criterion):
@@ -77,6 +74,7 @@ class Trainer:
 
         progress = tqdm(range(0, epochs))
         for epoch in progress:
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
             train_loss = self.train_epoch(model, criterion, optimizer, self.train_loader)
             valid_loss = self.evaluate(model, self.valid_loader, criterion)
             test_loss = self.evaluate(model, self.test_loader, criterion)
@@ -94,9 +92,9 @@ class Trainer:
             if early_stopping.early_stop:
                 early_stopping.save_best_model()
                 break
-
+            scheduler.step(valid_loss)
         early_stopping.save_best_model()
-        return np.mean(valid_loss_list)
+        return train_loss_list, valid_loss_list, test_loss_list
 
 
 def make_trainer(values):

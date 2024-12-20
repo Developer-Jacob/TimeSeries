@@ -4,7 +4,7 @@ from CustomLoss import CustomLoss
 import Const
 import Parser
 from Transformer import TimeSeriesTransformer
-from Viewer import CustomLinearLoss
+from Viewer import CustomLinearLoss, OptimizedCustomLoss
 def draw_test(data1, data2):
     fig = plt.figure(figsize=(20, 5))
 
@@ -69,6 +69,20 @@ def print_result(path, real, diffed, pred, convert_pred):
         f.write('\n\npredict: {}'.format(pred.flatten()[-10:]))
     f.close()
 
+
+def show_train_log(train_losses, valid_losses, test_losses):
+    # 학습 후 손실 그래프 출력
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_losses, label="Train Loss")
+    plt.plot(valid_losses, label="Valid Loss")
+    plt.plot(test_losses, label="Test Loss")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.title("Loss Over Epochs")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
 import torch
 import torch.nn as nn
 
@@ -89,5 +103,5 @@ def train_all(trainer, early_stopping, input_window, output_window, feature_size
     criterion = CustomLinearLoss()
     # criterion = nn.SmoothL1Loss()
 
-    valid_loss = trainer.train(early_stopping, Parser.param_epochs, model, criterion, optimizer)
-    return valid_loss
+    loss = trainer.train(early_stopping, Parser.param_epochs, model, criterion, optimizer)
+    return loss

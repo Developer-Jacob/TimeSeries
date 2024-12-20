@@ -205,12 +205,12 @@ class StockDataGenerator:
 
     def __init__(self, target_class='Close'):
         self.target_class = target_class
-        self.data_frame = yf.download('^GSPC', start='1970-01-01', end='2023-12-31').copy()
-        self.data_frame.columns = self.data_frame.columns = ['Adj Close', 'Close', 'High', 'Low', 'Open', 'Volume']
+        # self.data_frame = yf.download('^GSPC', start='1970-01-01', end='2023-12-31').copy()
+        # self.data_frame.columns = self.data_frame.columns = ['Adj Close', 'Close', 'High', 'Low', 'Open', 'Volume']
 
         # self.data_frame2 = fdr.DataReader("S&P500", "1985")
-        # read_data_frame = ReadExcel.read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
-        # self.data_frame = read_data_frame.iloc[int(len(read_data_frame) * 0.8):]
+        read_data_frame = ReadExcel.read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
+        self.data_frame = read_data_frame.iloc[int(len(read_data_frame) * 0.8):]
         # print(df_tail)
 
         # print(self.data_frame)
@@ -249,42 +249,54 @@ def range_std():
     print("Input data standard deviation:", data.std().item())
 
 if __name__ == '__main__':
-    train_data = StockDataGenerator().data_frame['Close'].to_numpy()
-
-    import scipy.stats as stats
+    data = StockDataGenerator().data_frame['Close'].to_numpy()
+    total_count = len(data)
+    train_count = int(total_count * 0.8)
+    valid_count = int((total_count - train_count) / 2)
+    test_count = total_count - train_count - valid_count
+    train_data = data[:train_count]
+    valid_data = data[train_count:train_count + valid_count]
+    test_data = data[-test_count:]
+    test_draw_data()
+    #
+    # import scipy.stats as stats
     import matplotlib.pyplot as plt
     from sklearn.preprocessing import RobustScaler
     import seaborn as sns
-    # 스케일러 적용
-    from sklearn.preprocessing import (
-        MinMaxScaler, StandardScaler, QuantileTransformer, RobustScaler, PowerTransformer)
-
-
-    scaler_minmax = MinMaxScaler()
-    scaler_standard = StandardScaler()
+    # # 스케일러 적용
+    # from sklearn.preprocessing import (
+    #     MinMaxScaler, StandardScaler, QuantileTransformer, RobustScaler, PowerTransformer)
+    #
+    #
+    # scaler_minmax = MinMaxScaler()
+    # scaler_standard = StandardScaler()
     scaler_robust = RobustScaler()
-    scaler_quantile = QuantileTransformer()
-    scaler_power1 = PowerTransformer(method='yeo-johnson')
-    scaler_power2 = PowerTransformer(method='box-cox')
-    print(np.median(train_data))
-    # 각 스케일러 적용
-    minmax_scaled = scaler_minmax.fit_transform(train_data.reshape(-1, 1))
-    standard_scaled = scaler_standard.fit_transform(train_data.reshape(-1, 1))
-    robust_scaled = scaler_robust.fit_transform(train_data.reshape(-1, 1))
-    quantaile_scaled = scaler_quantile.fit_transform(train_data.reshape(-1, 1))
-    power_scaled1 = scaler_power1.fit_transform(train_data.reshape(-1, 1))
-    power_scaled2 = scaler_power2.fit_transform(train_data.reshape(-1, 1))
-    log_scaled = np.log1p(train_data)  # log(1 + x)
-
-    # 분포 비교
+    # scaler_quantile = QuantileTransformer()
+    # scaler_power1 = PowerTransformer(method='yeo-johnson')
+    # scaler_power2 = PowerTransformer(method='box-cox')
+    # print(np.median(train_data))
+    # # 각 스케일러 적용
+    # minmax_scaled = scaler_minmax.fit_transform(train_data.reshape(-1, 1))
+    # standard_scaled = scaler_standard.fit_transform(train_data.reshape(-1, 1))
+    train = scaler_robust.fit_transform(train_data.reshape(-1, 1))
+    valid = scaler_robust.transform(valid_data.reshape(-1, 1))
+    test = scaler_robust.transform(test_data.reshape(-1, 1))
+    # quantaile_scaled = scaler_quantile.fit_transform(train_data.reshape(-1, 1))
+    # power_scaled1 = scaler_power1.fit_transform(train_data.reshape(-1, 1))
+    # power_scaled2 = scaler_power2.fit_transform(train_data.reshape(-1, 1))
+    # log_scaled = np.log1p(train_data)  # log(1 + x)
+    #
+    # # 분포 비교
     plt.figure(figsize=(10, 6))
-    sns.kdeplot(minmax_scaled.flatten(), label="MinMaxScaler", color='blue')
-    sns.kdeplot(standard_scaled.flatten(), label="StandardScaler", color='green')
-    sns.kdeplot(robust_scaled.flatten(), label="RobustScaler", color='red')
-    sns.kdeplot(quantaile_scaled.flatten(), label="QuantileTransformer", color='yellow')
-    sns.kdeplot(power_scaled1.flatten(), label="QuantileTransformer", color='black')
-    sns.kdeplot(power_scaled2.flatten(), label="QuantileTransformer", color='gray')
-    sns.kdeplot(log_scaled.flatten(), label="QuantileTransformer", color='orange')
+    # sns.kdeplot(minmax_scaled.flatten(), label="MinMaxScaler", color='blue')
+    # sns.kdeplot(standard_scaled.flatten(), label="StandardScaler", color='green')
+    sns.kdeplot(train.flatten(), label="train", color='red')
+    sns.kdeplot(valid.flatten(), label="valid", color='blue')
+    sns.kdeplot(test.flatten(), label="test", color='green')
+    # sns.kdeplot(quantaile_scaled.flatten(), label="QuantileTransformer", color='yellow')
+    # sns.kdeplot(power_scaled1.flatten(), label="QuantileTransformer", color='black')
+    # sns.kdeplot(power_scaled2.flatten(), label="QuantileTransformer", color='gray')
+    # sns.kdeplot(log_scaled.flatten(), label="QuantileTransformer", color='orange')
     plt.legend()
     plt.title("Comparison of Scaled Data")
     plt.show()

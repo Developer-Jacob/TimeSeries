@@ -12,9 +12,9 @@ class TimeSeriesTransformer(nn.Module):
         super(TimeSeriesTransformer, self).__init__()
         self.input_embedding = nn.Linear(input_dim, d_model)
         self.positional_encoding = self._get_positional_encoding(seq_len, d_model)
-
+        self.batch_norm = nn.BatchNorm1d(seq_len)
         # Transformer Encoder
-        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=n_heads, dropout=dropout_rate)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=n_heads, dropout=dropout_rate, batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
         # Fully connected output layer
@@ -23,6 +23,7 @@ class TimeSeriesTransformer(nn.Module):
     def forward(self, x):
         # Embed input
         x = self.input_embedding(x) + self.positional_encoding.to(x.device)
+        x = self.batch_norm(x)
         x = self.transformer_encoder(x)
         # Use the last time step's output for prediction
         output = self.fc_out(x[:, -1, :])
