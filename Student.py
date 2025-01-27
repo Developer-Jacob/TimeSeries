@@ -14,26 +14,34 @@ class Student:
         self.preprocessor = preprocessor
 
     def objective(self, trial):
-        hidden_size = trial.suggest_int(Student.key_hidden_size, 32, 128, step=32)
+        hidden_size = trial.suggest_int(Student.key_hidden_size, 64, 256, step=32)
         input_window = trial.suggest_int(Student.key_input_window, 50, 100, step=10)
         output_window = 1
-        dropout_rate = trial.suggest_float(Student.key_dropout_rate, 0.3, 0.5, step=0.05)
-        learning_rate = trial.suggest_float(Student.key_learning_rate, 0.0001, 0.001, log=True)
+        dropout_rate = trial.suggest_float(Student.key_dropout_rate, 0.2, 0.4, step=0.05)
+        learning_rate = trial.suggest_float(Student.key_learning_rate, 0.0005, 0.001, log=True)
         num_layers = trial.suggest_int(Student.key_num_layers, 2, 4)
         print("--------------------------- Study --------------------")
+        title = 'IW{}_OW{}_HS{}_LR{:.4f}_DO{:.4f}'.format(
+            input_window,
+            output_window,
+            hidden_size,
+            learning_rate,
+            dropout_rate
+        )
+
         print("Spec input_window {}, output_window {}, hidden_size {}, dropout_rate {}, learning_rate {}, num_layers {}"
               .format(input_window, output_window, hidden_size, dropout_rate, learning_rate, num_layers))
         values = self.preprocessor.processed(input_window, output_window)
         trainer = make_trainer(values)
         early_stopping = EarlyStopping(None, patience=10, verbose=True)
         train_loss, valid_loss, test_loss = train_all(trainer, early_stopping, input_window, output_window, self.preprocessor.feature_size, hidden_size, dropout_rate, learning_rate, num_layers)
-        show_train_log(train_loss, valid_loss, test_loss)
+        show_train_log(title, train_loss, valid_loss, test_loss)
         return np.mean(valid_loss)
 
 
     def study(self):
         study = optuna.create_study()
-        study.optimize(lambda trial: self.objective(trial), n_trials=10)
+        study.optimize(lambda trial: self.objective(trial), n_trials=50)
         print(study.best_params)
         print(study.best_value)
         return study.best_params

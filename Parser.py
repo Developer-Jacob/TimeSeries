@@ -1,6 +1,7 @@
 import argparse
 
 RANDOM_SEED = 42
+
 param_epochs = 200
 param_input_window = 4
 param_output_window = 1
@@ -11,11 +12,10 @@ param_is_train_mode = True
 
 def parse():
     args = argparse.ArgumentParser()
-    args.add_argument('--start', type=str, default='eval',
-                      help='all, train, eval')
-    args.add_argument('--epoch', type=int, default=200,
+    args.add_argument('--mode', type=str, default='study')
+    args.add_argument('--epoch', type=int, default=param_epochs,
                       help='epochs, default is 100')
-    args.add_argument('--learning_rate', type=float, default='0.001',
+    args.add_argument('--learning_rate', type=float, default=param_learning_rate,
                       help='learning_rate, default is 0.001')
     args.add_argument('--input_window', type=int, default=24,
                       help='input window, default is 72')
@@ -34,5 +34,3 @@ def print_params(epochs, learning_rate, input_window, output_window, hidden_size
     print("Hidden Size:     ", hidden_size)
     print("Learning rate:   ", learning_rate)
     print("Batch size:      ", batch_size)
-
-config = parse()

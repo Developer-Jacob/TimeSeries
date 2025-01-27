@@ -4,7 +4,9 @@ from CustomLoss import CustomLoss
 import Const
 import Parser
 from Transformer import TimeSeriesTransformer
-from Viewer import CustomLinearLoss, OptimizedCustomLoss
+import Viewer
+
+
 def draw_test(data1, data2):
     fig = plt.figure(figsize=(20, 5))
 
@@ -20,8 +22,8 @@ def draw_test(data1, data2):
 def draw_data_target(train, valid, test):
     fig = plt.figure(figsize=(20, 5))
 
-    plt.plot(range(0, len(train)), train, 'b.-')
-    plt.plot(range(len(train), len(train)+len(valid)), valid, 'r.-')
+    # plt.plot(range(0, len(train)), train, 'b.-')
+    # plt.plot(range(len(train), len(train)+len(valid)), valid, 'r.-')
     plt.plot(range(len(train)+len(valid), len(train)+len(valid)+len(test)), test, 'y.-')
     plt.show()
 
@@ -70,7 +72,7 @@ def print_result(path, real, diffed, pred, convert_pred):
     f.close()
 
 
-def show_train_log(train_losses, valid_losses, test_losses):
+def show_train_log(title, train_losses, valid_losses, test_losses):
     # 학습 후 손실 그래프 출력
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label="Train Loss")
@@ -78,7 +80,7 @@ def show_train_log(train_losses, valid_losses, test_losses):
     plt.plot(test_losses, label="Test Loss")
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
-    plt.title("Loss Over Epochs")
+    plt.title(title)
     plt.legend()
     plt.grid()
     plt.show()
@@ -100,7 +102,8 @@ def train_all(trainer, early_stopping, input_window, output_window, feature_size
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     # criterion = nn.MSELoss()
-    criterion = CustomLinearLoss()
+    # criterion = CustomLoss()
+    criterion = Viewer.ImprovedCustomLoss(penalty_weight=0.1, sensitivity=5.0)
     # criterion = nn.SmoothL1Loss()
 
     loss = trainer.train(early_stopping, Parser.param_epochs, model, criterion, optimizer)

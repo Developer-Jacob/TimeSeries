@@ -249,15 +249,16 @@ def range_std():
     print("Input data standard deviation:", data.std().item())
 
 if __name__ == '__main__':
-    data = StockDataGenerator().data_frame['Close'].to_numpy()
-    total_count = len(data)
-    train_count = int(total_count * 0.8)
-    valid_count = int((total_count - train_count) / 2)
-    test_count = total_count - train_count - valid_count
-    train_data = data[:train_count]
-    valid_data = data[train_count:train_count + valid_count]
-    test_data = data[-test_count:]
-    test_draw_data()
+    read_data_frame = ReadExcel.read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
+    df_test = read_data_frame.loc[read_data_frame['Timestamp'] >= '2022-03-22 21:35:00+00:00']
+
+    close = df_test["Close"].to_numpy()
+    import Util
+
+    Util.draw_data_target(
+        None,None,
+        close
+    )
     #
     # import scipy.stats as stats
     import matplotlib.pyplot as plt

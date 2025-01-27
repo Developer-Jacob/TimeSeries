@@ -52,14 +52,14 @@ class FileManager:
 
     def _make_directory(self, input_window, output_window, hidden_size, learning_rate, drop_out):
         date_str = datetime.today().strftime("%Y%m%d")
-        directory = 'IW{}_OW{}_HS{}_LR{:.4f}_DO{:.4f}'.format(
+        self.directory = 'IW{}_OW{}_HS{}_LR{:.4f}_DO{:.4f}'.format(
             input_window,
             output_window,
             hidden_size,
             learning_rate,
             drop_out
         )
-        self.directory_path = './Model/{}/{}'.format(date_str, directory)
+        self.directory_path = './Model/{}/{}'.format(date_str, self.directory)
         os.makedirs(self.directory_path, exist_ok=True)
 
     def _save_text(self):

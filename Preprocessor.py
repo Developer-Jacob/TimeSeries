@@ -52,7 +52,6 @@ class Preprocessor:
             self.processed_value = self.normalized(values)
         else:
             self.processed_value = values
-        print("123")
 
     def raw(self):
         return (
@@ -117,39 +116,20 @@ class Preprocessor:
         tensor_x_valid, tensor_y_valid = zip(*valid_batches)
         tensor_x_test, tensor_y_test = zip(*test_batches)
 
+        if self.verbose:
+            print("Train X:   ", tensor_x_train.shape, tensor_x_train[0])
+            print("Train Y:   ", tensor_y_train.shape, tensor_y_train[0])
+            print("Valid X:   ", tensor_x_valid.shape, tensor_x_valid[0])
+            print("Valid Y:   ", tensor_y_valid.shape, tensor_y_valid[0])
+            print("Test X:    ", tensor_x_test.shape, tensor_x_test[0])
+            print("Test Y:    ", tensor_y_test.shape, tensor_y_test[0])
+
         return (
             torch.stack(tensor_x_train), torch.stack(tensor_y_train),
             torch.stack(tensor_x_valid), torch.stack(tensor_y_valid),
             torch.stack(tensor_x_test), torch.stack(tensor_y_test)
         )
 
-        # x_train, y_train = sliding(train_x, train_y, input_window, output_window)
-        # tensor_x_train = to_tensor(x_train)
-        # tensor_y_train = to_tensor(y_train)
-        # del x_train, y_train
-        # gc.collect()
-        #
-        # x_valid, y_valid = sliding(valid_x.astype(np.float32), valid_y.astype(np.float32), input_window, output_window)
-        # tensor_x_valid = to_tensor(x_valid)
-        # tensor_y_valid = to_tensor(y_valid)
-        # del x_valid, y_valid
-        # gc.collect()
-        #
-        # x_test, y_test = sliding(test_x.astype(np.float32), test_y.astype(np.float32), input_window, output_window)
-        # tensor_x_test = to_tensor(x_test)
-        # tensor_y_test = to_tensor(y_test)
-        # del x_test, y_test
-        # gc.collect()
-        #
-        # if self.verbose:
-        #     print("Train X:   ", tensor_x_train.shape, tensor_x_train[0])
-        #     print("Train Y:   ", tensor_y_train.shape, tensor_y_train[0])
-        #     print("Valid X:   ", tensor_x_valid.shape, tensor_x_valid[0])
-        #     print("Valid Y:   ", tensor_y_valid.shape, tensor_y_valid[0])
-        #     print("Test X:    ", tensor_x_test.shape, tensor_x_test[0])
-        #     print("Test Y:    ", tensor_y_test.shape, tensor_y_test[0])
-        #
-        # return tensor_x_train, tensor_y_train, tensor_x_valid, tensor_y_valid, tensor_x_test, tensor_y_test
 
 def shift_elements(arr, num, fill_value):
     result = np.empty_like(arr)

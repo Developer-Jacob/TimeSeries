@@ -13,6 +13,7 @@ from Transformer import TimeSeriesTransformer
 from EarlyStopping import EarlyStopping
 
 def main():
+    config = Parser.parse()
     file_manager = FileManager()
     print("Device: ", device)
     need_norm = True
@@ -46,15 +47,15 @@ def main():
     elif mode == "train" or mode == "eval":
 
         # input_window = Parser.param_input_window
-        input_window = 90
-        output_window = Parser.param_output_window
+        input_window = 70
+        output_window = 1
         # hidden_size = Parser.param_hidden_size
-        hidden_size = 256
+        hidden_size = 96
         # learning_rate = Parser.param_learning_rate
-        learning_rate = 0.0001
+        learning_rate = 0.0005
         dropout_rate = 0.3
 
-        num_layers = 3
+        num_layers = 4
 
     if input_window is None or output_window is None or hidden_size is None or learning_rate is None or dropout_rate is None or num_layers is None:
         print("!! Missing value", input_window, output_window, hidden_size, learning_rate, dropout_rate)
@@ -67,7 +68,7 @@ def main():
         file_manager.set_params(input_window, output_window, hidden_size, learning_rate, dropout_rate)
         early_stopping = EarlyStopping(file_manager, patience=10, verbose=True)
         train_loss, valid_loss, test_loss = Util.train_all(trainer, early_stopping, input_window, output_window, preprocessor.feature_size, hidden_size, dropout_rate, learning_rate, num_layers)
-        show_train_log(train_loss, valid_loss, test_loss)
+        show_train_log(file_manager.directory, train_loss, valid_loss, test_loss)
 
     empty_model = TimeSeriesTransformer(
         input_dim=preprocessor.feature_size,
