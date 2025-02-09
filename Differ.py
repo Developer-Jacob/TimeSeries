@@ -5,14 +5,16 @@ import numpy as np
 def diff_data(input_data):
     diffed_data = np.transpose(np.diff(np.transpose(input_data)))
     pre_input = input_data[:-1]
-    data = np.where(pre_input != 0, diffed_data / pre_input, 0) * 100
+    data = np.where(pre_input != 0, diffed_data / pre_input, np.nan) * 100
+    data = np.nan_to_num(data, nan=0.0)  # NaN을 0으로 변환
     return data
 
 
 def diff_target(target_data):
     deffed_target = np.diff(target_data)
     pre_input2 = target_data[..., :-1]
-    target = np.where(pre_input2 != 0, deffed_target / pre_input2, 0) * 100
+    target = np.where(pre_input2 != 0, deffed_target / pre_input2, np.nan) * 100
+    target = np.nan_to_num(target, nan=0.0)  # NaN을 0으로 변환
     return target
 
 def restore_data(diffed_data, origin):

@@ -12,13 +12,6 @@ def to_tensor(array):
 def sliding(data, target, input_window, output_window, stride=1):
     # 데이터의 개수
     L = data.shape[0]
-    feature_size = data.shape[1]
-    # stride씩 움직이는데 몇번움직임 가능한지
-    # num_samples = (L - input_window - output_window + 1) // stride
-    #
-    # # input, output
-    # X = np.zeros([num_samples, input_window, feature_size])
-    # Y = np.zeros([num_samples, output_window])
 
     num_samples = max(0, (L - input_window - output_window + 1) // stride)
 
@@ -37,12 +30,11 @@ def sliding(data, target, input_window, output_window, stride=1):
 
 
 class Preprocessor:
-    def __init__(self, data_set, feature_size, need_diff=True, need_norm=True, verbose=False):
+    def __init__(self, data_set, need_diff=True, need_norm=True, verbose=False):
         self.data_set = data_set
         self.verbose = verbose
         self.data_normalizer = Normalizer()
         self.target_normalizer = Normalizer()
-        self.feature_size = feature_size
         if need_diff:
             values = self.diffed()
         else:

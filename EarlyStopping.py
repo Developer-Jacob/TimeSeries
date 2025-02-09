@@ -1,16 +1,18 @@
+import FileManager as fm
 
 
 class EarlyStopping:
-    def __init__(self, file_manager, patience=5, min_delta=0, verbose=False):
+    def __init__(self, patience=5, min_delta=0, verbose=False):
         self.patience = patience
         self.min_delta = min_delta
         self.verbose = verbose
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.file_manager = file_manager
         self.best_model = None
         self.saved = False
+
+        self.save_mode = True
 
     def __call__(self, val_loss, model):
         score = -val_loss
@@ -36,6 +38,9 @@ class EarlyStopping:
             print(f"Validation loss decreased: {val_loss:.4f}. Saving model...")
 
     def save_best_model(self):
-        if self.file_manager is not None and self.saved is False:
-            self.file_manager.save_model(self.best_model)
+        if self.save_mode is True and self.saved is False:
+            fm.file_manager.save_model(self.best_model)
             self.saved = True
+
+
+early_stopping = EarlyStopping(patience=10, verbose=True)

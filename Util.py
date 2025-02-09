@@ -4,7 +4,9 @@ from CustomLoss import CustomLoss
 import Const
 import Parser
 from Transformer import TimeSeriesTransformer
+import Transformer
 import Viewer
+import FileManager as fm
 
 
 def draw_test(data1, data2):
@@ -59,21 +61,17 @@ def draw_variance(diffed, pred, path, section=100):
     plt.savefig(path)
 
 
-def print_result(path, real, diffed, pred, convert_pred):
+def print_result(path, title, data):
     f = open(path, 'a+')
-    f.write("\n\nValues")
-    f.write('\nreal: {}'.format(real[-10:]))
-    f.write('\n\nconvert pred: {}'.format(convert_pred[-10:]))
+    f.write("\n\n{}".format(title))
+    f.write('\nreal: {}'.format(data[-10:]))
 
-    if diffed is not None:
-        f.write("\n\nVariance")
-        f.write('\ndiffed: {}'.format(diffed[-10:]))
-        f.write('\n\npredict: {}'.format(pred.flatten()[-10:]))
     f.close()
 
 
-def show_train_log(title, train_losses, valid_losses, test_losses):
+def show_train_log(train_losses, valid_losses, test_losses):
     # 학습 후 손실 그래프 출력
+    title = fm.file_manager.directory,
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label="Train Loss")
     plt.plot(valid_losses, label="Valid Loss")
@@ -89,22 +87,68 @@ import torch
 import torch.nn as nn
 
 
-def train_all(trainer, early_stopping, input_window, output_window, feature_size, hidden_size, dropout_rate, learning_rate, num_layers):
-    model = TimeSeriesTransformer(
-        input_dim=feature_size,
-        d_model=hidden_size,
-        n_heads=4,
-        num_layers=num_layers,
-        seq_len=input_window,
-        output_dim=output_window,
-        dropout_rate=dropout_rate
+def train_all(trainer, input_window, output_window, feature_size, hidden_size, dropout_rate, learning_rate, num_layers, num_heads):
+    model = Transformer.default_model(
+        input_window,
+        output_window,
+        feature_size,
+        hidden_size,
+        dropout_rate,
+        num_layers,
+        num_heads
     ).to(Const.device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    # criterion = nn.MSELoss()
+    criterion = nn.MSELoss()
     # criterion = CustomLoss()
-    criterion = Viewer.ImprovedCustomLoss(penalty_weight=0.1, sensitivity=5.0)
+    # criterion = Viewer.ImprovedCustomLoss(penalty_weight=0.1, sensitivity=5.0)
+    # criterion = Viewer.StockLoss()
     # criterion = nn.SmoothL1Loss()
 
-    loss = trainer.train(early_stopping, Parser.param_epochs, model, criterion, optimizer)
+    loss = trainer.train(Parser.param_epochs, model, criterion, optimizer)
     return loss
+
+
+def variance_to_origin(real, variance, input_window):
+    output = []
+    for index, _ in enumerate(real):
+        diff_index = index - input_window - 1
+        if len(variance) <= diff_index:
+            break
+        if diff_index < 0:
+            output.append(0)
+            continue
+        else:
+            data = real[index - 1] * (1 + (variance[diff_index]/100))
+            output.append(data.squeeze())
+    return np.array(output)
+
+def draw_upper_lower(path, real, upper_bound, lower_bound, input_window, output_window):
+    output_upper = []
+    output_lower = []
+
+    for index, _ in enumerate(real):
+        diff_index = index - input_window - output_window
+        if len(upper_bound) <= diff_index:
+            break
+        if diff_index < 0:
+            output_upper.append(real[index])
+            output_lower.append(real[index])
+            continue
+        else:
+            data = real[index - 1] * (1 + (upper_bound[diff_index]/100))
+            output_upper.append(data.squeeze())
+
+            data = real[index - 1] * (1 + (lower_bound[diff_index] / 100))
+            output_lower.append(data.squeeze())
+    output_upper = np.array(output_upper)
+    output_lower = np.array(output_lower)
+    fig = plt.figure(figsize=(20, 5))
+    start = len(real) - 50
+    if start < 0:
+        start = 0
+    end = len(real)
+    plt.plot(range(start, end), output_upper[start:end], 'b.-')
+    plt.plot(range(start, end), real[start:end], 'r.-')
+    plt.plot(range(start, end), output_lower[start:end], 'b.-')
+    plt.savefig(path)

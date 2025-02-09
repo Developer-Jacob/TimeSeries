@@ -2,7 +2,6 @@ from datetime import datetime
 import os
 import torch
 
-
 class FileManager:
     def __init__(self):
         self.model_path = "model_checkpoint.pth"
@@ -70,3 +69,6 @@ class FileManager:
         f.write('\nLearningRate {}'.format(self.learning_rate))
         f.write('\nDropout {}'.format(self.drop_out))
         f.close()
+
+
+file_manager = FileManager()

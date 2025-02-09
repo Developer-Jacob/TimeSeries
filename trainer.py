@@ -3,12 +3,15 @@ import torch
 import numpy as np
 from Const import device
 from DataLoader import data_loader
+from EarlyStopping import EarlyStopping
+
 
 class Trainer:
     def __init__(self, train_loader, valid_loader, test_loader):
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.test_loader = test_loader
+        self.save_mode = True
 
     def eval(self, eval_model):
         eval_model.eval()
@@ -66,16 +69,17 @@ class Trainer:
         with torch.no_grad():
             return self.compute_loss(model, loader, criterion)
 
-    def train(self, early_stopping, epochs, train_model, train_criterion, train_optimizer):
+    def train(self, epochs, train_model, train_criterion, train_optimizer):
+        early_stopping = EarlyStopping(patience=10, verbose=True)
+        early_stopping.save_mode = self.save_mode
         criterion = train_criterion
         optimizer = train_optimizer
         model = train_model.to(device)
         train_loss_list, valid_loss_list, test_loss_list = [], [], []
-
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10,
+                                                               verbose=True)
         progress = tqdm(range(0, epochs))
         for epoch in progress:
-            #TODO
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.95, patience=5, verbose=True)
             train_loss = self.train_epoch(epoch, model, criterion, optimizer, self.train_loader)
             valid_loss = self.evaluate(model, self.valid_loader, criterion)
             test_loss = self.evaluate(model, self.test_loader, criterion)

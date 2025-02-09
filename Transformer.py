@@ -39,6 +39,18 @@ class TimeSeriesTransformer(nn.Module):
         return pe.unsqueeze(0)
 
 
+def default_model(input_window, output_window, feature_size, hidden_size, dropout_rate, num_layers, num_heads):
+    return TimeSeriesTransformer(
+        input_dim=feature_size,
+        d_model=hidden_size,
+        n_heads=num_heads,
+        num_layers=num_layers,
+        seq_len=input_window,
+        output_dim=output_window,
+        dropout_rate=dropout_rate
+    )
+
+
 # Model Configuration
 # input_dim = 6  # 입력 특성 수 (open, high, low, close, volume 등)
 # d_model = 64  # 모델 차원

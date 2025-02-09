@@ -3,7 +3,7 @@ import numpy as np
 from torch.utils.data import Dataset
 import ReadExcel
 import yfinance as yf
-
+import pandas as pd
 
 class ExampleDataset(Dataset):
     def __init__(self, x, y):
@@ -85,10 +85,11 @@ class StockDataGenerator:
         # volume_log_ema120 = df['VolumeLogEMA120'].to_numpy()
 
         def value(key):
-            if key in ["Upper", "Lower", "MA"]:
-                return df[key].to_numpy()
-            else:
-                return df[key].rolling(window=5).mean().to_numpy()
+            return df[key].to_numpy()
+            # if key in ["Upper", "Lower", "MA"]:
+            #     return df[key].to_numpy()
+            # else:
+            #     return df[key].rolling(window=5).mean().to_numpy()
 
         self.data_class = [
             "Close", "High", "Low",
@@ -129,29 +130,43 @@ class StockDataGenerator:
         self.feature_size = 1
         # 데이터 생성
         train_x = np.arange(1, 101).reshape(100, 1)
-        valid_x = np.arange(1, 31).reshape(30, 1)
-        test_x = np.arange(101, 201).reshape(100, 1)
+        valid_x = np.arange(101, 201).reshape(100, 1)
+        test_x = np.arange(401, 501).reshape(100, 1)
 
         # y = sin(x) + 노이즈
         train_y = np.sin(train_x / 10).flatten() + np.random.normal(0, 0.1, train_x.shape[0])
         valid_y = np.sin(valid_x / 10).flatten() + np.random.normal(0, 0.1, valid_x.shape[0])
         test_y = np.sin(test_x / 10).flatten() + np.random.normal(0, 0.1, test_x.shape[0])
 
-        return StockData(
-            train_x, valid_x, test_x,
-            train_y, valid_y, test_y
-        )
-
         # return StockData(
-        #     np.arange(1, 101).reshape(100, 1),
-        #     np.arange(1, 31).reshape(30, 1),
-        #     np.arange(101, 201).reshape(100, 1),
-        #     np.arange(1, 101),
-        #     np.arange(1, 31),
-        #     np.arange(101, 201)
+        #     train_x, valid_x, test_x,
+        #     train_y, valid_y, test_y
         # )
+
+        return StockData(
+            np.arange(1, 101).reshape(100, 1),
+            np.arange(201, 301).reshape(100, 1),
+            np.arange(401, 501).reshape(100, 1),
+            np.arange(1, 101),
+            np.arange(201, 301),
+            np.arange(401, 501)
+        )
     def allGenerateData(self):
         data_set = self.generateData(0, len(self.data_frame))
+        self.print_data_set(data_set)
+        return data_set
+
+    def half(self):
+        data_set = self.generateData(0, len(self.data_frame)//2)
+        self.print_data_set(data_set)
+        return data_set
+
+    def mini_data(self):
+        data_set = self.generateData(0, 1000)
+        self.print_data_set(data_set)
+        return data_set
+
+    def print_data_set(self, data_set):
         print("Data class:         ", self.data_class)
         print("Target class:       ", self.target_class)
         print("Train data shape:   ", data_set.train_data.shape)
@@ -160,8 +175,6 @@ class StockDataGenerator:
         print("Valid target shape: ", data_set.valid_target.shape)
         print("Test data shape:    ", data_set.test_data.shape)
         print("Test target shape:  ", data_set.test_target.shape)
-
-        return data_set
 
     def generateData(self, start_index, section_size, train_ratio=0.8):
         end_index = start_index + section_size
@@ -203,28 +216,46 @@ class StockDataGenerator:
 
         return stock_data
 
-    def __init__(self, target_class='Close'):
+    def __init__(self, target_class='Close', merge_count=7):
         self.target_class = target_class
-        # self.data_frame = yf.download('^GSPC', start='1970-01-01', end='2023-12-31').copy()
-        # self.data_frame.columns = self.data_frame.columns = ['Adj Close', 'Close', 'High', 'Low', 'Open', 'Volume']
-
-        # self.data_frame2 = fdr.DataReader("S&P500", "1985")
-        read_data_frame = ReadExcel.read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
-        self.data_frame = read_data_frame.iloc[int(len(read_data_frame) * 0.8):]
-        # print(df_tail)
-
-        # print(self.data_frame)
-        # nasdaq = fdr.StockListing('NASDAQ')
-        # nyse = fdr.StockListing('NYSE')
-        # US5YT = fdr.DataReader('US5YT')  # 5년 만기 미국국채 수익률
-        # US10YT = fdr.DataReader('US10YT')  # 10년 만기 미국국채 수익률
-        # US30YT = fdr.DataReader('US30YT')  # 30년 만기 미국국채 수익률
-        # 2, 5, 10
-        # 금?, 유가?
-        # self.nasdaq = fdr.DataReader('IXIC', '1985').copy()  # 나스닥 종합지수 (IXIC - NASDAQ Composite)
-        # self.data_frame['Nasdaq_Close'] = self.nasdaq['Close']
+        self.data_frame = xbt_usd_min(0.1)
+        self.data_frame = merge_data(self.data_frame, merge_count)
         print('Total Data length:', len(self.data_frame))
-        self.total_data_size = len(self.data_frame)
+
+
+def xbt_usd_min(size=0.8):
+    read_data_frame = ReadExcel.read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
+    return read_data_frame.iloc[int(len(read_data_frame) * size):]
+
+
+def s_p_500_day():
+    data = yf.download('^GSPC', start='1970-01-01', end='2023-12-31').copy()
+    data.columns = data.columns = ['Adj Close', 'Close', 'High', 'Low', 'Open', 'Volume']
+    return data
+
+
+def merge_data(data_frame, count):
+    num_rows = len(data_frame)
+    m_close = [None] * num_rows
+    m_high = [None] * num_rows
+    m_low = [None] * num_rows
+    m_open = [None] * num_rows
+
+    # 7개씩 묶어서 처리 (앞에서부터 채우고 마지막 6개는 NaN)
+    for i in range(num_rows - count - 1):  # 7개씩 묶기 위해 len(df) - 6 범위 지정
+        window = data_frame.iloc[i:i + count]  # 7개 행 슬라이싱
+        m_close[i] = window['Close'].iloc[-1]  # 마지막 Close 값
+        m_high[i] = window['High'].max()  # High 값 중 최대
+        m_low[i] = window['Low'].min()  # Low 값 중 최소
+        m_open[i] = window['Open'].iloc[0]  # 첫 Open 값
+
+    data_frame['M_Close'] = m_close
+    data_frame['M_High'] = m_high
+    data_frame['M_Low'] = m_low
+    data_frame['M_Open'] = m_open
+
+    return data_frame
+
 
 def test_draw_data():
     generator = StockDataGenerator()
@@ -241,6 +272,7 @@ def test_draw_data():
         close[-test_count:],
     )
 
+
 def range_std():
     generator = StockDataGenerator()
     data_set = generator.allGenerateData()
@@ -249,55 +281,4 @@ def range_std():
     print("Input data standard deviation:", data.std().item())
 
 if __name__ == '__main__':
-    read_data_frame = ReadExcel.read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
-    df_test = read_data_frame.loc[read_data_frame['Timestamp'] >= '2022-03-22 21:35:00+00:00']
-
-    close = df_test["Close"].to_numpy()
-    import Util
-
-    Util.draw_data_target(
-        None,None,
-        close
-    )
-    #
-    # import scipy.stats as stats
-    import matplotlib.pyplot as plt
-    from sklearn.preprocessing import RobustScaler
-    import seaborn as sns
-    # # 스케일러 적용
-    # from sklearn.preprocessing import (
-    #     MinMaxScaler, StandardScaler, QuantileTransformer, RobustScaler, PowerTransformer)
-    #
-    #
-    # scaler_minmax = MinMaxScaler()
-    # scaler_standard = StandardScaler()
-    scaler_robust = RobustScaler()
-    # scaler_quantile = QuantileTransformer()
-    # scaler_power1 = PowerTransformer(method='yeo-johnson')
-    # scaler_power2 = PowerTransformer(method='box-cox')
-    # print(np.median(train_data))
-    # # 각 스케일러 적용
-    # minmax_scaled = scaler_minmax.fit_transform(train_data.reshape(-1, 1))
-    # standard_scaled = scaler_standard.fit_transform(train_data.reshape(-1, 1))
-    train = scaler_robust.fit_transform(train_data.reshape(-1, 1))
-    valid = scaler_robust.transform(valid_data.reshape(-1, 1))
-    test = scaler_robust.transform(test_data.reshape(-1, 1))
-    # quantaile_scaled = scaler_quantile.fit_transform(train_data.reshape(-1, 1))
-    # power_scaled1 = scaler_power1.fit_transform(train_data.reshape(-1, 1))
-    # power_scaled2 = scaler_power2.fit_transform(train_data.reshape(-1, 1))
-    # log_scaled = np.log1p(train_data)  # log(1 + x)
-    #
-    # # 분포 비교
-    plt.figure(figsize=(10, 6))
-    # sns.kdeplot(minmax_scaled.flatten(), label="MinMaxScaler", color='blue')
-    # sns.kdeplot(standard_scaled.flatten(), label="StandardScaler", color='green')
-    sns.kdeplot(train.flatten(), label="train", color='red')
-    sns.kdeplot(valid.flatten(), label="valid", color='blue')
-    sns.kdeplot(test.flatten(), label="test", color='green')
-    # sns.kdeplot(quantaile_scaled.flatten(), label="QuantileTransformer", color='yellow')
-    # sns.kdeplot(power_scaled1.flatten(), label="QuantileTransformer", color='black')
-    # sns.kdeplot(power_scaled2.flatten(), label="QuantileTransformer", color='gray')
-    # sns.kdeplot(log_scaled.flatten(), label="QuantileTransformer", color='orange')
-    plt.legend()
-    plt.title("Comparison of Scaled Data")
-    plt.show()
+    print()

@@ -97,6 +97,22 @@ class ImprovedCustomLoss(nn.Module):
         loss = loss_term + large_error_term + sign_penalty
         return torch.mean(loss)
 
+from torch.distributions.normal import Normal
+
+
+class StockLoss(nn.Module):
+    def forward(self, y_pred_mean, y_pred_std, y_true_mean, y_true_std):
+        # 정규분포 생성 (배치 및 출력 창 모두 고려)
+        dist = Normal(loc=y_pred_mean, scale=y_pred_std)
+
+        # Negative Log-Likelihood (NLL) 손실 계산
+        nll_loss = -dist.log_prob(y_true_mean).mean(dim=-1)  # output_window에 대해 평균 계산
+
+        # 표준편차에 대한 MSE 손실 추가
+        std_loss = nn.MSELoss()(y_pred_std, y_true_std)
+
+        # 전체 배치에 대한 평균 손실 반환
+        return nll_loss.mean() + std_loss
 
 # Main Execution
 if __name__ == "__main__":
