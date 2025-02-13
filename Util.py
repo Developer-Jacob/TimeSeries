@@ -69,9 +69,8 @@ def print_result(path, title, data):
     f.close()
 
 
-def show_train_log(train_losses, valid_losses, test_losses):
+def show_train_log(title, train_losses, valid_losses, test_losses):
     # 학습 후 손실 그래프 출력
-    title = fm.file_manager.directory,
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label="Train Loss")
     plt.plot(valid_losses, label="Valid Loss")
@@ -100,6 +99,7 @@ def train_all(trainer, input_window, output_window, feature_size, hidden_size, d
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
+    criterion = Viewer.QuantileLoss()
     # criterion = CustomLoss()
     # criterion = Viewer.ImprovedCustomLoss(penalty_weight=0.1, sensitivity=5.0)
     # criterion = Viewer.StockLoss()
@@ -152,3 +152,32 @@ def draw_upper_lower(path, real, upper_bound, lower_bound, input_window, output_
     plt.plot(range(start, end), real[start:end], 'r.-')
     plt.plot(range(start, end), output_lower[start:end], 'b.-')
     plt.savefig(path)
+
+def draw_quantiles(real, predictions):
+    # 분위수별 예측값
+    q10 = predictions[0].squeeze()  # 10% 분위수
+    q50 = predictions[1].squeeze()  # 50% 분위수 (중앙값)
+    q90 = predictions[2].squeeze()  # 90% 분위수
+
+    real = real[-100:]
+    q10 = q10[-100:]
+    q50 = q50[-100:]
+    q90 = q90[-100:]
+
+    # X 축 (날짜 또는 시간순서)
+    timesteps = np.arange(len(real))
+
+    # 그래프 그리기
+    plt.figure(figsize=(10, 5))
+    plt.plot(timesteps, real, label="Actual", color="black", linewidth=2)
+    plt.plot(timesteps, q50, label="Median Prediction (50%)", linestyle="dashed", color="blue")
+    plt.fill_between(timesteps, q10, q90, alpha=0.2, color="blue", label="10%-90% Confidence Interval")
+    # plt.plot(timesteps, q50, marker='o', linestyle="dashed", color="blue", label="Median Prediction (50%)")
+    # plt.fill_between(timesteps, q10, q90, alpha=0.2, color="blue", label="10%-90% Confidence Interval")
+    # plt.scatter(timesteps, y_actual[-1], color="red", label="Actual Value", zorder=3)
+    plt.ylim(-3, 3)
+    plt.xlabel("Time Step")
+    plt.ylabel("Value")
+    plt.legend()
+    plt.title("Transformer Quantile Regression Predictions")
+    plt.show()

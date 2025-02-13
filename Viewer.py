@@ -1,14 +1,32 @@
-import torch.nn as nn
-import torch
 import torch
 import torch.nn as nn
 
 import torch
 import torch.nn as nn
 
+class QuantileLoss(nn.Module):
+    def __init__(self, quantiles=None):
+        """
+        분위수(Quantiles) 리스트를 입력으로 받음
+        예: quantiles=[0.1, 0.5, 0.9]
+        """
+        super().__init__()
+        if quantiles is None:
+            quantiles = [0.1, 0.5, 0.9]
+        self.quantiles = quantiles
 
-import torch
-import torch.nn as nn
+    def forward(self, y_pred, y_true):
+        """
+        y_true: 실제값 (batch_size, seq_len, 1)
+        y_pred: 분위수별 예측값 리스트 [q1_pred, q2_pred, q3_pred] (각각 (batch_size, seq_len, 1))
+        """
+        loss = 0
+        for i, q in enumerate(self.quantiles):
+            errors = y_true - y_pred[i]
+            loss += torch.mean(torch.max(q * errors, (q - 1) * errors))
+        return loss
+
+
 class AdaptiveCustomLoss(nn.Module):
     def __init__(self, penalty_weight=0.1, sensitivity=3.0, extra_penalty=5.0, max_penalty=20.0):
         """

@@ -16,56 +16,69 @@ def main(execute_mode):
 
     print("--------------------------- STEP 1 DATA GENERATOR --------------------")
     generator = StockDataGenerator()
-    # data_set = generator.allGenerateData()  # ndarray
+    data_set = generator.allGenerateData()  # ndarray
     # data_set = generator.half()
-    data_set = generator.dummy()
+    # data_set = generator.dummy()
     feature_size = generator.feature_size
 
     print("--------------------------- STEP 1 PREPARE DATA --------------------")
     preprocessor = Preprocessor(data_set, need_diff=need_diff, need_norm=need_norm, verbose=False)
 
-    print("--------------------------- STEP 2 TRAINING --------------------")
     input_window = None
     output_window = None
     hidden_size = None
     learning_rate = None
     dropout_rate = None
     num_layers = None
+    num_heads = None
+
     if execute_mode == "study":
+        print("--------------------------- STEP 2 PREPARE STUDYING --------------------")
         def preprocess(iw, ow):
             return preprocessor.processed(iw, ow)
         student = Student()
         best_params = student.study(feature_size, lambda iw, ow: preprocess(iw, ow))
 
         input_window = best_params[student.key_input_window]
-        output_window = best_params[student.key_output_window]
+        output_window = Parser.param_output_window
         hidden_size = best_params[student.key_hidden_size]
         learning_rate = best_params[student.key_learning_rate]
         dropout_rate = best_params[student.key_dropout_rate]
         num_layers = best_params[student.key_num_layers]
+        num_heads = Parser.param_num_head
     elif execute_mode == "train" or execute_mode == "eval":
+        print("--------------------------- STEP 2 PREPARE TRAINING --------------------")
         input_window = Parser.param_input_window
         output_window = Parser.param_output_window
         hidden_size = Parser.param_hidden_size
         learning_rate = Parser.param_learning_rate
         dropout_rate = Parser.param_dropout
         num_layers = Parser.param_num_layers
+        num_heads = Parser.param_num_head
+    Parser.check_params(learning_rate, input_window, output_window, hidden_size, dropout_rate, num_layers, num_heads)
 
-    Parser.check_params(learning_rate, input_window, output_window, hidden_size, dropout_rate, num_layers)
-
+    print("--------------------------- STEP 3 PREPROCESSING --------------------")
     values = preprocessor.processed(input_window, output_window)
     trainer = make_trainer(values)
 
+    print("--------------------------- STEP 4 TRAINING --------------------")
     if execute_mode == "train" or execute_mode == "study":
         fm.file_manager.set_params(input_window, output_window, hidden_size, learning_rate, dropout_rate)
-        train_loss, valid_loss, test_loss = Util.train_all(trainer, input_window, output_window, feature_size, hidden_size, dropout_rate, learning_rate, num_layers, 4)
-        show_train_log(train_loss, valid_loss, test_loss)
+        train_loss, valid_loss, test_loss = Util.train_all(trainer, input_window, output_window, feature_size, hidden_size, dropout_rate, learning_rate, num_layers, num_heads)
+        show_train_log("", train_loss, valid_loss, test_loss)
 
-    empty_model = Transformer.default_model(
-        input_window, output_window, feature_size, hidden_size, dropout_rate, num_layers, 4
-    ).to(device)
+    print("--------------------------- STEP 4 PREDICTION --------------------")
+    empty_model = Transformer.default_model(input_window, output_window, feature_size, hidden_size, dropout_rate, num_layers, num_heads).to(device)
+
     trained_model = fm.file_manager.load_model(empty_model)
-    pred = trainer.eval(trained_model)
+    predictions = trainer.eval(trained_model)
+
+    print("--------------------------- STEP 5 SHOW RESULT --------------------")
+    real = data_set.test_target
+
+    diffed = preprocessor.diffed()[5]
+    diffed_pred = [preprocessor.inverse_normalize_test_target(pred) for pred in predictions]
+    Util.draw_quantiles(diffed[-len(diffed_pred[0]):], diffed_pred)
 
     # print("--------------------------- STEP 3 SHOW --------------------")
     # # pred = pred[:, :, 0]
@@ -96,7 +109,7 @@ def main(execute_mode):
 if __name__ == "__main__":
     import ssl
     ssl._create_default_https_context = ssl._create_unverified_context
+    # mode = 'train'
     mode = 'train'
-    # mode = 'study'
     # mode = 'eval'
     main(execute_mode=mode)

@@ -2,14 +2,17 @@ import argparse
 
 RANDOM_SEED = 42
 
-param_epochs = 50
+param_epochs = 200
 param_input_window = 50
-param_output_window = 7
+param_output_window = 1
 param_hidden_size = 128
 param_learning_rate = 0.001
 param_batch_size = 64
 param_num_layers = 4
+param_num_head = 4
 param_dropout = 0.3
+param_merge_count = 7
+param_study_trial_count = 1
 
 def parse():
     args = argparse.ArgumentParser()
@@ -28,12 +31,22 @@ def parse():
     return args.parse_args()
 
 
-def check_params(learning_rate, input_window, output_window, hidden_size, dropout_rate, num_layers):
-    if input_window is None or output_window is None or hidden_size is None or learning_rate is None or dropout_rate is None or num_layers is None:
-        message = "!! Missing value {}, {} ,{} ,{}, {}".format(input_window, output_window, hidden_size, learning_rate, dropout_rate)
+def check_params(learning_rate, input_window, output_window, hidden_size, dropout_rate, num_layers, num_heads):
+    if (input_window is None
+            or output_window is None
+            or hidden_size is None
+            or learning_rate is None
+            or dropout_rate is None
+            or num_layers is None
+            or num_heads is None
+    ):
+        message = "!! Missing value {}, {} ,{} ,{}, {}, {}, {}".format(input_window, output_window, hidden_size, learning_rate, dropout_rate, num_layers, num_heads)
         RuntimeError(message)
     else:
         print("Input window:    ", input_window)
         print("Output window:   ", output_window)
         print("Hidden Size:     ", hidden_size)
         print("Learning rate:   ", learning_rate)
+        print("Dropout          ", dropout_rate)
+        print("Number of layers:", num_layers)
+        print("Number of heads: ", num_heads)

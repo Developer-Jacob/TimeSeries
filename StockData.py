@@ -31,10 +31,6 @@ class StockDataGenerator:
     def augment(self, df):
         # Train
 
-        # s = MinMaxScaler()
-        # df['OpenRatio'] = s.fit_transform(((df['Open'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
-        # df['LowRatio'] = s.transform(((df['Low'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
-        # df['HighRatio'] = s.transform(((df['High'] - df['Close']) / df['Close']).to_numpy().reshape(-1, 1))
         df = df.copy()
         df['MA'] = df['Close'].rolling(window=20).mean()
 
@@ -42,47 +38,12 @@ class StockDataGenerator:
         std = df['Close'].rolling(window=20).std()
         df['Upper'] = df['MA'] + (2 * std)  # 상단밴드
         df['Lower'] = df['MA'] - (2 * std)  # 하단밴드
-        #
-        # windows = [5, 10, 20, 60, 120]
-        #
-        # for window in windows:
-        #     # Normalization된 종가
-        #     df['NormCloseEMA{}'.format(window)] = (df['NormClose']
-        #                                            .ewm(span=window, min_periods=window, adjust=False)
-        #                                            .mean()
-        #                                            )
-        #     # log 변환되기 전의 거래량
-        #     df['VolumeEMA{}'.format(window)] = (df['Volume']
-        #                                         .ewm(span=window, min_periods=window, adjust=False)
-        #                                         .mean()
-        #                                         )
-        #     # log 변환
-        #     df['VolumeLogEMA{}'.format(window)] = df['VolumeEMA{}'.format(window)].apply(
-        #         lambda x: (math.log10(x / 10000000)) if x / 10000000 > 1 else 0)
-        #
+
         close = df['Close'].to_numpy()
         open = df['Open'].to_numpy()
         high = df['High'].to_numpy()
         low = df['Low'].to_numpy()
         volume = df['Volume'].to_numpy()
-        # nasdaq = df['Nasdaq_Close'].to_numpy()
-        #
-        # open_ratio = df['OpenRatio'].to_numpy()
-        # high_ratio = df['HighRatio'].to_numpy()
-        # low_ratio = df['LowRatio'].to_numpy()
-        bollinger_upper = df['Upper'].to_numpy()
-        bollinger_lower = df['Lower'].to_numpy()
-        bollinger_ma = df['MA'].to_numpy()
-        # norm_close_ema5 = df['NormCloseEMA5'].to_numpy()
-        # norm_close_ema10 = df['NormCloseEMA10'].to_numpy()
-        # norm_close_ema20 = df['NormCloseEMA20'].to_numpy()
-        # norm_close_ema60 = df['NormCloseEMA60'].to_numpy()
-        # norm_close_ema120 = df['NormCloseEMA120'].to_numpy()
-        # volume_log_ema5 = df['VolumeLogEMA5'].to_numpy()
-        # volume_log_ema10 = df['VolumeLogEMA10'].to_numpy()
-        # volume_log_ema20 = df['VolumeLogEMA20'].to_numpy()
-        # volume_log_ema60 = df['VolumeLogEMA60'].to_numpy()
-        # volume_log_ema120 = df['VolumeLogEMA120'].to_numpy()
 
         def value(key):
             return df[key].to_numpy()
@@ -112,45 +73,6 @@ class StockDataGenerator:
         result = np.array(result).transpose(1, 0).copy()
         return result[20:], close[20:]
 
-    def generateRowData(self, section_size=600):
-        result = []
-        for i in range(len(self.data_frame)):
-            start = i * section_size
-            end = (i + 1) * section_size
-            if end >= len(self.data_frame):
-                break
-
-            value = self.data_frame[start:end]
-
-            result.append(self.augment(value))
-
-        return result
-
-    def dummy(self):
-        self.feature_size = 1
-        # 데이터 생성
-        train_x = np.arange(1, 101).reshape(100, 1)
-        valid_x = np.arange(101, 201).reshape(100, 1)
-        test_x = np.arange(401, 501).reshape(100, 1)
-
-        # y = sin(x) + 노이즈
-        train_y = np.sin(train_x / 10).flatten() + np.random.normal(0, 0.1, train_x.shape[0])
-        valid_y = np.sin(valid_x / 10).flatten() + np.random.normal(0, 0.1, valid_x.shape[0])
-        test_y = np.sin(test_x / 10).flatten() + np.random.normal(0, 0.1, test_x.shape[0])
-
-        # return StockData(
-        #     train_x, valid_x, test_x,
-        #     train_y, valid_y, test_y
-        # )
-
-        return StockData(
-            np.arange(1, 101).reshape(100, 1),
-            np.arange(201, 301).reshape(100, 1),
-            np.arange(401, 501).reshape(100, 1),
-            np.arange(1, 101),
-            np.arange(201, 301),
-            np.arange(401, 501)
-        )
     def allGenerateData(self):
         data_set = self.generateData(0, len(self.data_frame))
         self.print_data_set(data_set)
@@ -218,17 +140,18 @@ class StockDataGenerator:
 
     def __init__(self, target_class='Close', merge_count=7):
         self.target_class = target_class
-        self.data_frame = xbt_usd_min(0.1)
-        self.data_frame = merge_data(self.data_frame, merge_count)
+        self.data_frame = xbt_usd_min()
+        # self.data_frame = xbt_usd_min(0.1)
+        # self.data_frame = merge_data(self.data_frame, merge_count)
         print('Total Data length:', len(self.data_frame))
 
 
 def xbt_usd_min(size=0.8):
-    read_data_frame = ReadExcel.read_csv_to_dataframe("XBTUSD_FIVE_MINUTES.csv").copy()
+    read_data_frame = ReadExcel.read_xbtusd_five_to_dataframe().copy()
     return read_data_frame.iloc[int(len(read_data_frame) * size):]
 
 
-def s_p_500_day():
+def sp500_day():
     data = yf.download('^GSPC', start='1970-01-01', end='2023-12-31').copy()
     data.columns = data.columns = ['Adj Close', 'Close', 'High', 'Low', 'Open', 'Volume']
     return data

@@ -27,8 +27,8 @@ class Trainer:
                 # print("data ", data[0].squeeze())
                 # print("target", target[0])
                 # print("output", predicted[0])
-
-                pred = predicted.data.detach().cpu().numpy()
+                pred = [pred.data.detach().cpu().numpy() for pred in predicted]
+                # pred = predicted.data.detach().cpu().numpy()
 
         return pred
 
@@ -38,8 +38,8 @@ class Trainer:
         with torch.no_grad():
             for data, target in data_loader:
                 data, target = data.to(device), target.to(device)
-                output = model(data).squeeze()
-                loss = criterion(output, target.squeeze())
+                output = model(data)
+                loss = criterion(output, target)
                 losses.append(loss.item())
         return np.mean(losses)
 
@@ -49,14 +49,14 @@ class Trainer:
         for data, target in loader:
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
-            output = model(data).squeeze()
+            output = model(data)
 
             # print("------")
             # print("data ", data[0].squeeze())
             # print("target", target[0])
             # print("output", output[0])
 
-            loss = criterion(output, target.squeeze())
+            loss = criterion(output, target)
 
             loss.backward()
             optimizer.step()
