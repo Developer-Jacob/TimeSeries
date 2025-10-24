@@ -15,9 +15,9 @@ class Student:
         hidden_size = trial.suggest_int(Student.key_hidden_size, 64, 256, step=32)
         input_window = trial.suggest_int(Student.key_input_window, 50, 100, step=10)
         output_window = Parser.param_output_window
-        dropout_rate = trial.suggest_float(Student.key_dropout_rate, 0.2, 0.4, step=0.05)
-        learning_rate = trial.suggest_float(Student.key_learning_rate, 0.0005, 0.001, log=True)
-        num_layers = trial.suggest_int(Student.key_num_layers, 2, 4)
+        dropout_rate = trial.suggest_float(Student.key_dropout_rate, 0.3, 0.5, step=0.05)
+        learning_rate = trial.suggest_float(Student.key_learning_rate, 0.0001, 0.0005, log=True)
+        num_layers = trial.suggest_int(Student.key_num_layers, 2, 3)
         print("--------------------------- Study --------------------")
         title = 'IW{}_OW{}_HS{}_LR{:.4f}_DO{:.4f}'.format(
             input_window,

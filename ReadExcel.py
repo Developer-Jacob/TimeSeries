@@ -10,11 +10,11 @@ def read_xbtusd_five_to_dataframe():
     """
     try:
         # CSV 파일 읽기
-        df = pd.read_csv("XBTUSD_FIVE_MINUTES.csv")
+        df = pd.read_csv("data/XBTUSD_FIVE_MINUTES.csv")
         df.columns = ['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume', "Interval", "Vwap", "Direction", "Seven_Open", "Seven_High", "Seven_Low", "Seven_Close"]
         return df
-    except FileNotFoundError:
-        print(f"파일을 찾을 수 없습니다.: {"XBTUSD_FIVE_MINUTES.csv"}")
+    except FileNotFoundError as e:
+        print(f"파일을 찾을 수 없습니다.: {e}")
     except Exception as e:
         print(f"CSV 파일을 읽는 도중 오류가 발생했습니다: {e}")
 

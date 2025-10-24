@@ -1,7 +1,7 @@
 import Parser
 from trainer import make_trainer
 from Const import device
-from StockData import StockDataGenerator
+from StockDataGenerator import StockDataGenerator
 import FileManager as fm
 from Preprocessor import Preprocessor
 from Student import Student
@@ -9,15 +9,14 @@ from Util import draw_result, print_result, draw_variance, show_train_log
 import Util
 import Transformer
 
-
 def main(execute_mode):
     need_norm = True
     need_diff = True
 
     print("--------------------------- STEP 1 DATA GENERATOR --------------------")
     generator = StockDataGenerator()
-    data_set = generator.allGenerateData()  # ndarray
-    # data_set = generator.half()
+    # data_set = generator.all()  # ndarray
+    data_set = generator.mini()
     # data_set = generator.dummy()
     feature_size = generator.feature_size
 
@@ -109,7 +108,8 @@ def main(execute_mode):
 if __name__ == "__main__":
     import ssl
     ssl._create_default_https_context = ssl._create_unverified_context
-    # mode = 'train'
     mode = 'train'
+    # mode = 'study'
     # mode = 'eval'
     main(execute_mode=mode)
+

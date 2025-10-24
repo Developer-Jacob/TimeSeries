@@ -100,7 +100,7 @@ class CnnAutoEncoder(nn.Module):
     def fit(self, x, n_epoch=10, batch_size=64, en_shuffle=False):
         for epoch in range(n_epoch):
             if en_shuffle:
-                print("Data Shuffled")
+                print("data Shuffled")
                 # X = sklearn.utils.shuffle(X)
             for local_step, X_batch in enumerate(self.gen_batch(x, batch_size)):
                 inputs = torch.autograd.Variable(torch.from_numpy(X_batch.astype(np.float32)))

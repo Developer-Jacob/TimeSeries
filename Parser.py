@@ -2,8 +2,8 @@ import argparse
 
 RANDOM_SEED = 42
 
-param_epochs = 200
-param_input_window = 50
+param_epochs = 5
+param_input_window = 5
 param_output_window = 1
 param_hidden_size = 128
 param_learning_rate = 0.001
@@ -12,7 +12,10 @@ param_num_layers = 4
 param_num_head = 4
 param_dropout = 0.3
 param_merge_count = 7
-param_study_trial_count = 1
+param_study_trial_count = 20
+diff = True
+norm = True
+verbose = True
 
 def parse():
     args = argparse.ArgumentParser()

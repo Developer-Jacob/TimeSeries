@@ -56,7 +56,6 @@ class Preprocessor:
         )
 
     def diffed(self):
-        print()
         return (
             diff_data(self.data_set.train_data),
             diff_target(self.data_set.train_target),

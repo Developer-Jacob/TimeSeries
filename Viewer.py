@@ -3,6 +3,7 @@ import torch.nn as nn
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class QuantileLoss(nn.Module):
     def __init__(self, quantiles=None):
@@ -11,9 +12,9 @@ class QuantileLoss(nn.Module):
         예: quantiles=[0.1, 0.5, 0.9]
         """
         super().__init__()
-        if quantiles is None:
-            quantiles = [0.1, 0.5, 0.9]
         self.quantiles = quantiles
+        if quantiles is None:
+            self.quantiles = [0.1, 0.5, 0.9]
 
     def forward(self, y_pred, y_true):
         """
@@ -26,111 +27,54 @@ class QuantileLoss(nn.Module):
             loss += torch.mean(torch.max(q * errors, (q - 1) * errors))
         return loss
 
-
-class AdaptiveCustomLoss(nn.Module):
-    def __init__(self, penalty_weight=0.1, sensitivity=3.0, extra_penalty=5.0, max_penalty=20.0):
+class QuantileHuberLoss(nn.Module):
+    def __init__(self, quantiles=None, delta=1.0, consistency_weight=0.1):
         """
         Args:
-        - penalty_weight: Initial penalty scale for opposite signs.
-        - sensitivity: Controls the sensitivity for small errors.
-        - extra_penalty: Fixed penalty for opposite signs.
-        - max_penalty: Maximum allowed penalty for opposite signs.
+            quantiles (list or tensor): 예측할 분위수 리스트 (ex. [0.1, 0.5, 0.9])
+            delta (float): Huber Loss에서 MSE와 MAE 전환 경계값
         """
-        super(AdaptiveCustomLoss, self).__init__()
-        self.penalty_weight = penalty_weight
-        self.sensitivity = sensitivity
-        self.extra_penalty = extra_penalty
-        self.max_penalty = max_penalty
+        super().__init__()
+        self.quantiles = quantiles
+        if quantiles is None:
+            self.quantiles = [0.1, 0.5, 0.9]
+        self.delta = delta
+        self.consistency_weight = consistency_weight
 
-    def forward(self, y_pred, y_true, epoch=1, total_epochs=100):
-        # Loss Term: Sensitive to small errors
-        loss_term = torch.arctan(self.sensitivity * torch.abs(y_pred - y_true))
+    def forward(self, preds, target):
+        """
+        Args:
+            preds (list of Tensors): 각 분위수에 대한 예측값 리스트, 각각 (batch_size, 1)
+            target (Tensor): 실제 정답값, shape (batch_size,)
+        Returns:
+            scalar loss (Tensor)
+        """
+        loss = 0.0
+        for i, q in enumerate(self.quantiles):
+            pred = preds[i].squeeze(-1)  # (batch_size,)
+            error = target - pred        # 오차: y - f(x)
 
-        # Penalty Term: Applied only when signs are opposite
-        sign_mismatch = 1 - torch.sign(y_pred * y_true)  # 1 if signs differ, 0 if same
-        dynamic_penalty = self.penalty_weight * (epoch / total_epochs)  # Gradually increase penalty
-        sign_penalty = sign_mismatch * (
-            dynamic_penalty * torch.abs(y_pred - y_true) + self.extra_penalty
-        )
-        sign_penalty = torch.clamp(sign_penalty, max=self.max_penalty)  # Cap penalty
+            # Huber 기반 pinball loss
+            huber = torch.where(
+                error.abs() <= self.delta,
+                0.5 * error.pow(2),
+                self.delta * (error.abs() - 0.5 * self.delta)
+            )
+            quantile_loss = torch.max((q - 1) * error, q * error)
+            loss += torch.mean(huber * quantile_loss)
 
-        # Combine terms
-        loss = loss_term + sign_penalty
+        loss = loss / len(self.quantiles)  # 분위수 평균
+
+        if len(preds) >= 2 and self.consistency_weight > 0:
+            consistency = 0.0
+            for i in range(len(preds) - 1):
+                lower = preds[i].squeeze(-1)
+                upper = preds[i + 1].squeeze(-1)
+                consistency += F.relu(lower - upper).mean()
+            consistency /= (len(preds) - 1)
+            loss += self.consistency_weight * consistency
+
         return loss
-class ImprovedCustomLoss2(nn.Module):
-    def __init__(self, penalty_weight=0.1, sensitivity=3.0, extra_penalty=5.0):
-        """
-        Args:
-        - penalty_weight: Penalty scale for opposite signs.
-        - sensitivity: Controls the sensitivity for small errors.
-        - extra_penalty: Fixed penalty for opposite signs.
-        """
-        super(ImprovedCustomLoss2, self).__init__()
-        self.penalty_weight = penalty_weight
-        self.sensitivity = sensitivity
-        self.extra_penalty = extra_penalty
-
-    def forward(self, y_pred, y_true):
-        # Loss Term: Sensitive to small errors
-        loss_term = torch.arctan(self.sensitivity * torch.abs(y_pred - y_true))
-
-        # Penalty Term: Applied only when signs are opposite
-        sign_mismatch = 1 - torch.sign(y_pred * y_true)  # 1 if signs differ, 0 if same
-        sign_penalty = sign_mismatch * (
-            self.penalty_weight * torch.abs(y_pred - y_true) + self.extra_penalty
-        )
-
-        # Combine terms
-        loss = loss_term + sign_penalty
-        return loss
-class ImprovedCustomLoss(nn.Module):
-    def __init__(self, penalty_weight=0.1, sensitivity=3.0, large_error_weight=0.5):
-        """
-        Args:
-        - penalty_weight: Initial penalty scale for opposite signs.
-        - sensitivity: Controls the sensitivity for small errors.
-        - large_error_weight: Additional weight for large errors to prevent saturation.
-        """
-        super(ImprovedCustomLoss, self).__init__()
-        self.penalty_weight = penalty_weight
-        self.sensitivity = sensitivity
-        self.large_error_weight = large_error_weight
-        self.total_epochs = 200
-
-    def forward(self, y_pred, y_true, epoch=1):
-        # Loss Term: Sensitive to small errors
-        loss_term = torch.arctan(self.sensitivity * torch.abs(y_pred - y_true))
-
-        # Additional term for large errors to prevent saturation
-        large_error_term = self.large_error_weight * (y_pred - y_true) ** 2
-
-        # Penalty Term: Smooth penalty for opposite signs
-        sign_penalty = self.penalty_weight * (1 - torch.sign(y_pred * y_true)) * torch.abs(y_pred - y_true)
-
-        # Adjust penalty dynamically (scaling penalty_weight over time)
-        dynamic_penalty_weight = self.penalty_weight * (epoch / self.total_epochs)
-        sign_penalty *= dynamic_penalty_weight
-
-        # Combine terms
-        loss = loss_term + large_error_term + sign_penalty
-        return torch.mean(loss)
-
-from torch.distributions.normal import Normal
-
-
-class StockLoss(nn.Module):
-    def forward(self, y_pred_mean, y_pred_std, y_true_mean, y_true_std):
-        # 정규분포 생성 (배치 및 출력 창 모두 고려)
-        dist = Normal(loc=y_pred_mean, scale=y_pred_std)
-
-        # Negative Log-Likelihood (NLL) 손실 계산
-        nll_loss = -dist.log_prob(y_true_mean).mean(dim=-1)  # output_window에 대해 평균 계산
-
-        # 표준편차에 대한 MSE 손실 추가
-        std_loss = nn.MSELoss()(y_pred_std, y_true_std)
-
-        # 전체 배치에 대한 평균 손실 반환
-        return nll_loss.mean() + std_loss
 
 # Main Execution
 if __name__ == "__main__":
@@ -139,7 +83,6 @@ if __name__ == "__main__":
     # Define loss function
     # loss_fn = ImprovedCustomLoss(penalty_weight=0.1, sensitivity=5.0)
     # loss_fn = ImprovedCustomLoss(penalty_weight=0.1, sensitivity=5.0, large_error_weight=0.5)
-    loss_fn = AdaptiveCustomLoss(penalty_weight=0.1, sensitivity=5.0, extra_penalty=5.0, max_penalty=20.0)
     # Generate data
     y_pred = torch.linspace(-3, 3, 300)  # Predicted values
     y_true_positive = torch.full_like(y_pred, 1.0)  # Positive target

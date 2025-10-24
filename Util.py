@@ -8,7 +8,6 @@ import Transformer
 import Viewer
 import FileManager as fm
 
-
 def draw_test(data1, data2):
     fig = plt.figure(figsize=(20, 5))
 
@@ -98,8 +97,7 @@ def train_all(trainer, input_window, output_window, feature_size, hidden_size, d
     ).to(Const.device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.MSELoss()
-    criterion = Viewer.QuantileLoss()
+    criterion = Viewer.QuantileHuberLoss()
     # criterion = CustomLoss()
     # criterion = Viewer.ImprovedCustomLoss(penalty_weight=0.1, sensitivity=5.0)
     # criterion = Viewer.StockLoss()

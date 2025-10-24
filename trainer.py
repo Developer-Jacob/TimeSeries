@@ -70,7 +70,7 @@ class Trainer:
             return self.compute_loss(model, loader, criterion)
 
     def train(self, epochs, train_model, train_criterion, train_optimizer):
-        early_stopping = EarlyStopping(patience=10, verbose=True)
+        early_stopping = EarlyStopping(patience=20, verbose=True)
         early_stopping.save_mode = self.save_mode
         criterion = train_criterion
         optimizer = train_optimizer

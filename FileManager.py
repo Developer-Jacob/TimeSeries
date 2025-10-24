@@ -4,7 +4,7 @@ import torch
 
 class FileManager:
     def __init__(self):
-        self.model_path = "model_checkpoint.pth"
+        self.model_path = None
         self.file_path = None
         self.image_path = None
         self.variance_image_path = None
@@ -23,10 +23,15 @@ class FileManager:
         }, self.model_path)
 
     def load_model(self, model):
-        checkpoint = torch.load(self.model_path)
-        model.load_state_dict(checkpoint['state_dict'])
-        model.eval()
-        return model
+        if os.path.exists(self.model_path):
+            checkpoint = torch.load(self.model_path)
+            model.load_state_dict(checkpoint['state_dict'])
+            model.eval()
+            print("✅ 모델 체크포인트 로드 완료")
+            print("현재 작업 디렉토리:", os.getcwd())
+            return model
+        else:
+            print("⚠️ 체크포인트 파일이 존재하지 않습니다.")
 
     def set_params(self, input_window, output_window, hidden_size, learning_rate, drop_out):
         self.input_window = input_window

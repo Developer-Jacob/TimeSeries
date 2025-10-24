@@ -41,6 +41,3 @@ class EarlyStopping:
         if self.save_mode is True and self.saved is False:
             fm.file_manager.save_model(self.best_model)
             self.saved = True
-
-
-early_stopping = EarlyStopping(patience=10, verbose=True)
